@@ -3020,262 +3020,301 @@ Format your response with clear sections and bullet points.`
           <span className="fab-dot" /> Filters
         </button>
       )}
-
-      {/* Filter Panel with smooth transition - only show on map view */}
-      {activeTab === 'map' && (
-        <div
-          className={`filter-panel ${panelOpen ? 'open' : 'closed'}`}
-          style={{ '--scale': panelScale }}
-          aria-hidden={!panelOpen}
-        >
-        <div className="panel-header">
-          <strong className="panel-title">Filters</strong>
-          <div className="panel-actions">
-            <button 
-              onClick={resetFilters} 
-              className="btn ghost" 
-              title="Reset all filters"
-              style={{ 
-                padding: '6px 12px', 
-                fontSize: '13px',
-                background: '#f8fafc',
-                color: '#475569',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                fontWeight: 500,
-                transition: 'all 0.2s'
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.background = '#f1f5f9';
-                e.currentTarget.style.borderColor = '#cbd5e1';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.background = '#f8fafc';
-                e.currentTarget.style.borderColor = '#e2e8f0';
-              }}
+          {/* Filter Panel with smooth transition - only show on map view */}
+          {activeTab === 'map' && (
+            <div
+              className={`filter-panel ${panelOpen ? 'open' : 'closed'}`}
+              style={{ '--scale': panelScale }}
+              aria-hidden={!panelOpen}
             >
-              Reset
-            </button>
-            <button
-              aria-label="Hide filters"
-              onClick={() => setPanelOpen(false)}
-              className="btn close-btn"
-              title="Hide filters"
-              style={{
-                padding: '4px 8px',
-                fontSize: '18px',
-                background: '#f8fafc',
-                color: '#64748b',
-                border: '1px solid #e2e8f0',
-                borderRadius: '6px',
-                fontWeight: 400,
-                lineHeight: 1,
-                transition: 'all 0.2s'
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.background = '#fee2e2';
-                e.currentTarget.style.color = '#dc2626';
-                e.currentTarget.style.borderColor = '#fecaca';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.background = '#f8fafc';
-                e.currentTarget.style.color = '#64748b';
-                e.currentTarget.style.borderColor = '#e2e8f0';
-              }}
-            >
-              ×
-            </button>
-          </div>
-        </div>
+              <div className="panel-header">
+                <strong className="panel-title">Filters</strong>
 
-        {/* States */}
-        <label className="label">State(s)</label>
-        <select
-          ref={stateSelectRef}
-          multiple
-          value={selectedStates}
-          onChange={() => {}}
-          className="select"
-        >
-          {stateOptions.map(st => (
-            <option
-              key={st}
-              value={st}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                toggleSelectValue(stateSelectRef, setSelectedStates, st);
-              }}
-            >
-              {`${st} - ${STATE_NAMES[st] || st}`}
-            </option>
-          ))}
-        </select>
+                <div className="panel-actions">
+                  {/* Yellow RESET pill */}
+                  <button
+                    onClick={resetFilters}
+                    className="btn"
+                    title="Reset all filters"
+                    style={{
+                      height: 42,
+                      padding: '8px 16px',
+                      borderRadius: 14,
+                      background: '#fff7cc',
+                      color: '#111827',
+                      border: '1px solid #f6e08a',
+                      fontWeight: 700,
+                      fontSize: 14,
+                      boxShadow:
+                        'inset 0 1.5px 0 rgba(255,255,255,.95), 0 6px 16px rgba(0,0,0,.07)',
+                      transition:
+                        'transform .15s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease',
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.background = '#ffef99';
+                      e.currentTarget.style.borderColor = '#f2d463';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.boxShadow =
+                        'inset 0 1.5px 0 rgba(255,255,255,.98), 0 10px 22px rgba(0,0,0,.10)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.background = '#fff7cc';
+                      e.currentTarget.style.borderColor = '#f6e08a';
+                      e.currentTarget.style.transform = 'none';
+                      e.currentTarget.style.boxShadow =
+                        'inset 0 1.5px 0 rgba(255,255,255,.95), 0 6px 16px rgba(0,0,0,.07)';
+                    }}
+                  >
+                    Reset
+                  </button>
 
-        {/* Products (checkboxes + Select all) */}
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between'}}>
-          <label className="label" style={{marginBottom: 0}}>Product(s)</label>
-          <button
-            type="button"
-            onClick={selectAllProducts}
-            className="btn ghost"
-            style={{
-              padding:'4px 10px',
-              background: allProductsSelected ? '#2563eb' : '#fff',
-              color: allProductsSelected ? '#fff' : '#111827',
-              borderColor: allProductsSelected ? '#2563eb' : '#e5e7eb'
-            }}
-            title="Select all products"
-          >
-            Select all
-          </button>
-        </div>
-        <div ref={productSelectRef} className="checkbox-list" style={{border: '1px solid #e5e7eb', borderRadius: 12, padding: 8, margin: '6px 0 12px'}}>
-          {productOptions.map(p => {
-            const checked = selectedProducts.includes(p);
-            return (
-              <label key={p} style={{display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px'}}>
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => {
-                    setSelectedProducts(prev =>
-                      checked ? prev.filter(v => v !== p) : [...prev, p]
-                    );
-                  }}
-                />
-                {p}
-              </label>
-            );
-          })}
-        </div>
+                  {/* Round pink CLOSE button */}
+                  <button
+                    aria-label="Hide filters"
+                    onClick={() => setPanelOpen(false)}
+                    className="btn close-btn"
+                    title="Hide filters"
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 999,
+                      padding: 0,
+                      lineHeight: 1,
+                      fontSize: 18,
+                      background: '#fee2e2',
+                      color: '#dc2626',
+                      border: '1px solid #fecaca',
+                      boxShadow: '0 6px 16px rgba(0,0,0,.06)',
+                      transition: 'transform .12s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease',
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.background = '#fecaca';
+                      e.currentTarget.style.borderColor = '#fca5a5';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.boxShadow = '0 8px 18px rgba(0,0,0,.08)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.background = '#fee2e2';
+                      e.currentTarget.style.borderColor = '#fecaca';
+                      e.currentTarget.style.transform = 'none';
+                      e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,.06)';
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+              {/* Legend */}
+              <div style={{ marginTop: 16, padding: 12, background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                <div style={{ fontWeight: 600, marginBottom: 8, fontSize: '14px' }}>Legend</div>
 
-        {/* Zip code */}
-        <label className="label">Zip code</label>
-        <input
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          placeholder="e.g., 10027"
-          value={zipQuery}
-          onChange={e => {
-            // keep only digits, cap to 5
-            const digits = e.target.value.replace(/\D/g, '').slice(0, 5);
-            setZipQuery(digits);
-          }}
-          className="input"
-          style={{marginBottom: 12}}
-          maxLength={5}
-        />
+                {/* Product Colors */}
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: '12px', fontWeight: 500, marginBottom: 4 }}>Product Colors:</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: '11px' }}>
+                    {availableProducts.map((product) => (
+                      <div key={product.id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span className="legend-dot" style={{ color: getProductColor(product.name), '--sz': '14px' }} />
+                        <span>{product.name}</span>
+                      </div>
+                    ))}
+                    {availableProducts.length >= 2 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span className="legend-dot" style={{ color: '#8b5cf6', '--sz': '14px' }} />
+                        <span>Multiple Products</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-        {/* Registration date range */}
-        <div className="grid-2">
-          <div>
-            <label className="label">Reg. From</label>
-            <input
-              type="text"
-              placeholder="mm-dd-yyyy or yyyy"
-              value={dateFrom}
-              onChange={e => setDateFrom(e.target.value)}
-              className="input"
-            />
-          </div>
-          <div>
-            <label className="label">Reg. To</label>
-            <input
-              type="text"
-              placeholder="mm-dd-yyyy or yyyy"
-              value={dateTo}
-              onChange={e => setDateTo(e.target.value)}
-              className="input"
-            />
-          </div>
-        </div>
-
-        {/* Status */}
-        <label className="label">Account status</label>
-        <div className="chips">
-          {['lead', 'prospect', 'customer'].map(s => {
-            const active = statuses.has(s);
-            return (
-              <button
-                key={s}
-                onClick={() => {
-                  setStatuses(prev => {
-                    const next = new Set(prev);
-                    if (next.has(s)) next.delete(s);
-                    else next.add(s);
-                    return next;
-                  });
-                }}
-                className={`chip ${active ? 'active' : ''}`}
+                {/* Status Sizes */}
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 500, marginBottom: 4 }}>Status Sizes:</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: '11px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span className="legend-dot" style={{ color: '#6b7280', '--sz': '8px' }} />
+                      <span>Lead</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span className="legend-dot" style={{ color: '#6b7280', '--sz': '10px' }} />
+                      <span>Prospect</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span className="legend-dot" style={{ color: '#6b7280', '--sz': '12px' }} />
+                      <span>Customer</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* States */}
+              <label className="label">State(s)</label>
+              <select
+                ref={stateSelectRef}
+                multiple
+                value={selectedStates}
+                onChange={() => {}}
+                className="select"
               >
-                {s[0].toUpperCase() + s.slice(1)}
-              </button>
-            );
-          })}
-        </div>
+                {stateOptions.map((st) => (
+                  <option
+                    key={st}
+                    value={st}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      toggleSelectValue(stateSelectRef, setSelectedStates, st);
+                    }}
+                  >
+                    {`${st} - ${STATE_NAMES[st] || st}`}
+                  </option>
+                ))}
+              </select>
 
-        {/* Legend */}
-        <div style={{marginTop: 16, padding: 12, background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0'}}>
-          <div style={{fontWeight: 600, marginBottom: 8, fontSize: '14px'}}>Legend</div>
-          
-          {/* Product Colors */}
-          <div style={{marginBottom: 8}}>
-            <div style={{fontSize: '12px', fontWeight: 500, marginBottom: 4}}>Product Colors:</div>
-            <div style={{display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: '11px'}}>
-              {/* Show all available products dynamically */}
-              {availableProducts.map(product => (
-                <div key={product.id} style={{display: 'flex', alignItems: 'center', gap: 4}}>
-                  <div style={{
-                    width: 12, 
-                    height: 12, 
-                    borderRadius: '50%', 
-                    background: getProductColor(product.name), 
-                    border: '1px solid #fff'
-                  }}></div>
-                  <span>{product.name}</span>
+              {/* Products (checkboxes + Select all) */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label className="label" style={{ marginBottom: 0 }}>
+                  Product(s)
+                </label>
+                <button
+                  type="button"
+                  onClick={selectAllProducts}
+                  className="btn ghost"
+                  style={{
+                    padding: '4px 10px',
+                    background: allProductsSelected ? '#2563eb' : '#fff',
+                    color: allProductsSelected ? '#fff' : '#111827',
+                    borderColor: allProductsSelected ? '#2563eb' : '#e5e7eb',
+                  }}
+                  title="Select all products"
+                >
+                  Select all
+                </button>
+              </div>
+              <div
+                ref={productSelectRef}
+                className="checkbox-list"
+                style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: 8, margin: '6px 0 12px' }}
+              >
+                {productOptions.map((p) => {
+                  const checked = selectedProducts.includes(p);
+                  return (
+                    <label key={p} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px' }}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          setSelectedProducts((prev) => (checked ? prev.filter((v) => v !== p) : [...prev, p]));
+                        }}
+                      />
+                      {p}
+                    </label>
+                  );
+                })}
+              </div>
+              {/* Zip code */}
+              <label className="label">Zip code</label>
+              <div className="input-wrap zip-field">
+                <span className="input-icon search-icon" aria-hidden="true">
+                  {/* magnifier icon */}
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="7" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="e.g., 10027"
+                  value={zipQuery}
+                  onChange={e => {
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 5);
+                    setZipQuery(digits);
+                  }}
+                  className="input input--elev with-icon"
+                  style={{ marginBottom: 12 }}
+                  maxLength={5}
+                />
+              </div>
+
+              {/* Dates (vertical) */}
+              <div className="date-fields-vertical">
+                <div className="input-wrap calendar-field">
+                  <label className="label">Reg. From</label>
+                  <span className="input-icon calendar-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8"  y1="2" x2="8"  y2="6" />
+                      <line x1="3"  y1="10" x2="21" y2="10" />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="mm-dd-yyyy or yyyy"
+                    value={dateFrom}
+                    onChange={e => setDateFrom(e.target.value)}
+                    className="input input--elev with-icon"
+                  />
                 </div>
-              ))}
-              {/* Show "Multiple Products" option if we have 2 or more products */}
-              {availableProducts.length >= 2 && (
-                <div style={{display: 'flex', alignItems: 'center', gap: 4}}>
-                  <div style={{width: 12, height: 12, borderRadius: '50%', background: '#8b5cf6', border: '1px solid #fff'}}></div>
-                  <span>Multiple Products</span>
+
+                <div className="input-wrap calendar-field">
+                  <label className="label">Reg. To</label>
+                  <span className="input-icon calendar-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8"  y1="2" x2="8"  y2="6" />
+                      <line x1="3"  y1="10" x2="21" y2="10" />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="mm-dd-yyyy or yyyy"
+                    value={dateTo}
+                    onChange={e => setDateTo(e.target.value)}
+                    className="input input--elev with-icon"
+                  />
                 </div>
-              )}
-            </div>
-          </div>
-          
-          {/* Status Sizes */}
-          <div>
-            <div style={{fontSize: '12px', fontWeight: 500, marginBottom: 4}}>Status Sizes:</div>
-            <div style={{display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: '11px', alignItems: 'center'}}>
-              <div style={{display: 'flex', alignItems: 'center', gap: 4}}>
-                <div style={{width: 8, height: 8, borderRadius: '50%', background: '#6b7280', border: '1px solid #fff'}}></div>
-                <span>Lead</span>
               </div>
-              <div style={{display: 'flex', alignItems: 'center', gap: 4}}>
-                <div style={{width: 10, height: 10, borderRadius: '50%', background: '#6b7280', border: '1px solid #fff'}}></div>
-                <span>Prospect</span>
-              </div>
-              <div style={{display: 'flex', alignItems: 'center', gap: 4}}>
-                <div style={{width: 12, height: 12, borderRadius: '50%', background: '#6b7280', border: '1px solid #fff'}}></div>
-                <span>Customer</span>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <div className="footnote">
-          Showing <b>{filteredSites.length}</b> of {sites.length}
-        </div>
-        </div>
-      )}
 
-      {/* Map - only show on map view */}
-      {activeTab === 'map' && <div ref={mapContainer} className="map-container" />}
-    </div>
-  );
-}
+
+
+              {/* Status */}
+              <label className="label">Account status</label>
+              <div className="chips">
+                {['lead', 'prospect', 'customer'].map((s) => {
+                  const active = statuses.has(s);
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => {
+                        setStatuses((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(s)) next.delete(s);
+                          else next.add(s);
+                          return next;
+                        });
+                      }}
+                      className={`chip chip--${s} ${active ? 'active' : ''}`}   
+                    >
+                      {s[0].toUpperCase() + s.slice(1)}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="footnote">
+                Showing <b>{filteredSites.length}</b> of {sites.length}
+              </div>
+            </div>
+          )}
+
+          {/* Map - only show on map view */}
+          {activeTab === 'map' && <div ref={mapContainer} className="map-container" />}
+
+      </div>
+    );
+  }
 
 export default App;

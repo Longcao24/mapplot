@@ -303,4 +303,623 @@
   to {
     transform: rotate(360deg);
   }
+}.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Map container */
+.map-container {
+  position: absolute;
+  top: 70px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: calc(100vh - 70px);
+}
+
+/* Smooth slide/fade/scale */
+.filter-panel {
+  position: absolute;
+  top: 86px;
+  left: 16px;
+  z-index: 2;
+  width: 360px;
+  max-height: calc(100vh - 110px);
+  overflow: auto;
+
+  /* base look (enhanced further below in the “Glassy panel” section) */
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
+
+  transform-origin: top left;
+  transform: translateY(0) scale(var(--scale, 1));
+  opacity: 1;
+  transition:
+    transform 360ms cubic-bezier(.2,.7,.2,1),
+    opacity 320ms ease,
+    visibility 0s linear 0s;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+
+  padding: 16px;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  box-sizing: border-box;
+}
+.filter-panel.closed {
+  opacity: 0;
+  transform: translateY(-8px) translateX(-8px) scale(0.96);
+  visibility: hidden;
+  transition:
+    transform 360ms cubic-bezier(.2,.7,.2,1),
+    opacity 320ms ease,
+    visibility 0s linear 320ms; /* hide after fade for smoother feel */
+  pointer-events: none;
+}
+
+/* Header & buttons */
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 0 0 12px 0;
+  border-bottom: 1px solid rgba(229, 231, 235, 0.6);
+}
+.panel-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #111827;
+  margin: 0;
+}
+
+/* Cluster popup styling */
+.cluster-popup .maplibregl-popup-content {
+  padding: 0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+.cluster-popup .maplibregl-popup-tip { border-top-color: #ffffff !important; }
+
+/* Responsive table for mobile */
+@media (max-width: 640px) {
+  .cluster-popup .maplibregl-popup-content {
+    max-width: 90vw !important;
+    font-size: 11px !important;
+  }
+}
+
+.panel-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btn {
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  background: #fff;
+  color: #374151;
+  border-radius: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.btn.ghost:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #111827;
+}
+.btn.close-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn.close-btn:hover {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+/* Inputs */
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 8px;
+  display: block;
+}
+.select {
+  width: 100%;
+  height: 110px;
+  border-radius: 10px;
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  padding: 10px;
+  margin: 6px 0 16px;
+  outline: none;
+  box-sizing: border-box;
+  background: #fff;
+  font-size: 14px;
+  color: #374151;
+  transition: all 0.2s ease;
+}
+.select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+.input {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  padding: 10px 12px;
+  margin-top: 6px;
+  outline: none;
+  box-sizing: border-box;
+  background: #fff;
+  font-size: 14px;
+  color: #374151;
+  transition: all 0.2s ease;
+}
+.input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+.input::placeholder { color: #9ca3af; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+
+/* Chips */
+.chips {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.chip {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(15,23,42,.06);
+}
+.chip:hover { border-color: #d1d5db; background: #f9fafb; }
+.chip.active { border-color: #3b82f6; background: #eff6ff; color: #1e40af; }
+.chip.active:hover { background: #dbeafe; }
+
+/* Footnote */
+.footnote {
+  margin-top: 12px;
+  padding: 12px;
+  font-size: 12px;
+  color: #6b7280;
+  background: rgba(249, 250, 251, 0.8);
+  border-radius: 10px;
+  line-height: 1.5;
+}
+
+/* Floating open button */
+.fab-open {
+  position: absolute;
+  top: 86px;
+  left: 16px;
+  z-index: 3;
+  background: #111827;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 12px 18px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+.fab-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25); }
+  50%      { box-shadow: 0 0 0 6px rgba(96, 165, 250, 0.15); }
+}
+.fab-open:hover {
+  background: #1f2937;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2), 0 3px 6px rgba(0, 0, 0, 0.12);
+}
+
+/* AI Insights spinner animation */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ----------------------------------------------
+   YOUR ADDED GLOWY LEGEND DOTS (kept verbatim)
+   ---------------------------------------------- */
+/* ---- Legend dot: glossy with colored glow ---- */
+.legend-dot {
+  --sz: 12px;         /* override per dot: 8px, 10px, 12px, etc. */
+  width: var(--sz);
+  height: var(--sz);
+  border-radius: 999px;
+  display: inline-block;
+
+  /* fill picks up from the element's text color (set in inline style) */
+  background: currentColor;
+  border: 1px solid rgba(255,255,255,0.9);
+
+  /* inner sheen + subtle depth */
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,0.85),
+    inset 0 -2px 6px rgba(0,0,0,0.25);
+
+  /* soft colored glow */
+  filter:
+    drop-shadow(0 2px 6px rgba(0,0,0,0.10))
+    drop-shadow(0 0 8px currentColor);
+  position: relative;
+}
+
+/* highlight spot */
+.legend-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at 30% 30%,
+              rgba(255,255,255,0.95) 0%,
+              rgba(255,255,255,0.55) 18%,
+              rgba(255,255,255,0) 40%);
+  pointer-events: none;
+}
+
+/* ----------------------------------------------
+   GLASSY FILTER PANEL (your style + polish)
+   ---------------------------------------------- */
+.filter-panel {
+  /* visuals override for glass */
+  background:
+    radial-gradient(1200px 700px at 12% -10%,
+      rgba(255,255,255,0.88) 0%,
+      rgba(255,255,255,0.78) 42%,
+      rgba(199, 227, 240, 0.58) 100%),
+    linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.92));
+  border: 1px solid rgba(17, 24, 39, 0.06);
+  border-radius: 22px;
+  box-shadow:
+    0 28px 60px rgba(2, 6, 23, 0.10),
+    0 6px 14px rgba(2, 6, 23, 0.06);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  padding: 20px; /* a touch more breathing room like the mock */
+}
+
+/* soft inner glow around the card (subtle) */
+.filter-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  pointer-events: none;
+  background:
+    radial-gradient(900px 500px at 8% 0%,
+      rgba(255,255,255,0.65), transparent 60%) no-repeat;
+  mix-blend-mode: screen;
+}
+
+/* keep header divider/light look */
+.panel-header {
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(229, 231, 235, 0.55);
+}
+
+/* inputs inside glass: crisp + round like mock */
+.input,
+.select {
+  border-radius: 14px !important;
+  background: #ffffff !important;
+  border: 1px solid #dce4ee !important;
+  box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(15,23,42,0.06);
+}
+
+/* chips match pill style (base) */
+.chip {
+  border-radius: 999px;
+  box-shadow: 0 1px 2px rgba(15,23,42,.06);
+}
+
+/* legend card: stronger lift to sell the glass look */
+.filter-panel .legend-card,
+.filter-panel .legend,           /* fallback if you don't have a class */
+.filter-panel > div[style*="Legend"] {
+  /* targets your current inline-styled Legend container */
+  background: linear-gradient(180deg, #ffffff, #fbfbfd);
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  border-radius: 18px !important;
+  box-shadow:
+    0 18px 40px rgba(2,6,23,0.10),
+    0 6px 14px rgba(2,6,23,0.06) !important;
+}
+
+/* title and section labels a bit bolder on glass */
+.panel-title { letter-spacing: -0.01em; }
+.label { color: #111827; }
+
+/* ----------------------------------------------
+   EXTRA COLORFUL TOUCHES (status pills & controls)
+   ---------------------------------------------- */
+:root{
+  --lead:#6b7280;
+  --prospect:#f59e0b;
+  --customer:#10b981;
+  --ring: rgba(59,130,246,.16);
+}
+
+/* prettier focus */
+.select:focus,
+.input:focus{
+  border-color:#3b82f6 !important;
+  box-shadow: 0 0 0 4px var(--ring);
+}
+
+/* Checkbox block looks like a card */
+.checkbox-list{
+  background: linear-gradient(180deg,#ffffff, #f7fbff);
+  border: 1px solid #e3ebf5 !important;
+  border-radius: 12px;
+}
+
+/* “Select all” soft blue pill */
+.btn.ghost{
+  background:#eef6ff;
+  border-color:#d6e6ff;
+}
+.btn.ghost:hover{
+  background:#e2efff;
+  border-color:#c7dcff;
+}
+
+/* — Colored status pills when active — */
+.chips{ gap:14px; }
+.chip{
+  padding:10px 18px;
+  font-weight:700;
+  background:#ffffffaa;
+  border:1px solid rgba(229,231,235,0.9);
+  transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
+}
+.chip:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(2,6,23,.08);
+}
+/* Base active reset */
+.chip.active{ background:#fff; }
+
+/* Per-status accents (requires chip--lead / chip--prospect / chip--customer on the element) */
+.chip--lead.active{
+  color: var(--lead);
+  border-color: color-mix(in srgb, var(--lead) 45%, #ffffff);
+  box-shadow:
+    0 10px 22px color-mix(in srgb, var(--lead) 28%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--lead) 55%, #ffffff) inset;
+}
+.chip--prospect.active{
+  color: var(--prospect);
+  border-color: color-mix(in srgb, var(--prospect) 55%, #ffffff);
+  box-shadow:
+    0 12px 26px color-mix(in srgb, var(--prospect) 30%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--prospect) 50%, #ffffff) inset;
+}
+.chip--customer.active{
+  color: var(--customer);
+  border-color: color-mix(in srgb, var(--customer) 55%, #ffffff);
+  box-shadow:
+    0 12px 26px color-mix(in srgb, var(--customer) 30%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--customer) 50%, #ffffff) inset;
+}
+
+/* footer card matches glass theme */
+.footnote{
+  background: linear-gradient(180deg,#f7fbff, #f4f7fb);
+  border:1px solid #e6edf6;
+  border-radius:14px;
+}
+/* Base color per status (visible even when not active) */
+.chip--lead      { color: var(--lead); }
+.chip--prospect  { color: var(--prospect); }
+.chip--customer  { color: var(--customer); }
+
+/* When active, keep the accent + glow you already have */
+.chip--lead.active {
+  color: var(--lead);
+  border-color: color-mix(in srgb, var(--lead) 45%, #ffffff);
+  box-shadow:
+    0 10px 22px color-mix(in srgb, var(--lead) 28%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--lead) 55%, #ffffff) inset;
+}
+.chip--prospect.active {
+  color: var(--prospect);
+  border-color: color-mix(in srgb, var(--prospect) 55%, #ffffff);
+  box-shadow:
+    0 12px 26px color-mix(in srgb, var(--prospect) 30%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--prospect) 50%, #ffffff) inset;
+}
+.chip--customer.active {
+  color: var(--customer);
+  border-color: color-mix(in srgb, var(--customer) 55%, #ffffff);
+  box-shadow:
+    0 12px 26px color-mix(in srgb, var(--customer) 30%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--customer) 50%, #ffffff) inset;
+}
+/* ===== Pretty pill inputs with icons, glow & sheen ===== */
+.input-wrap {
+  position: relative;
+}
+
+.input--elev {
+  border-radius: 14px !important;
+  border: 1px solid #dce4ee !important;
+  background: linear-gradient(180deg, #ffffff, #fbfbfd) !important;
+  box-shadow:
+    inset 0 1px 0 #ffffff,
+    0 1px 2px rgba(15, 23, 42, 0.06);
+  transition: box-shadow .2s ease, border-color .2s ease, transform .12s ease;
+}
+
+/* icon support */
+.with-icon { padding-left: 46px; }
+.input-icon {
+  position: absolute;
+  left: 14px;
+  top: 55%;
+  width: 18px; height: 18px;
+  color: #9aa5b1;        /* icon color */
+  opacity: .9;
+  pointer-events: none;
+}
+
+/* better focus ring, soft lift */
+.input--elev:focus {
+  border-color: #3b82f6 !important;
+  box-shadow:
+    0 0 0 4px rgba(59,130,246,.12),
+    0 10px 22px rgba(2,6,23,.08),
+    inset 0 1px 0 #fff;
+}
+
+/* subtle hover (desktop) */
+@media (hover:hover) {
+  .input--elev:hover {
+    border-color: #cdd7e5 !important;
+    box-shadow:
+      0 6px 16px rgba(2,6,23,.06),
+      inset 0 1px 0 #ffffff;
+  }
+}
+
+/* specific icon tone per field (optional, just a hint of brand) */
+.zip-field .input-icon { color: #60a5fa; }       /* blue magnifier */
+.calendar-field .input-icon { color: #a78bfa; }  /* purple calendar */
+
+/* pair spacing harmony on glass */
+.grid-2 .input-wrap .input--elev {
+  height: 48px;
+}
+
+/* keep your existing .input/.select base; these sit on top without breaking anything */
+/* === Vertical date fields layout === */
+.date-fields-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;              /* spacing between rows */
+  margin-bottom: 14px;
+}
+
+/* Align icons consistently when stacked */
+.date-fields-vertical .input-wrap {
+  width: 100%;
+  position: relative;
+}
+
+.date-fields-vertical .label {
+  margin-bottom: 6px;
+  display: inline-block;
+}
+
+/* Match height and aesthetics */
+.date-fields-vertical .input--elev {
+  height: 48px;
+  border-radius: 14px !important;
+  background: linear-gradient(180deg, #ffffff, #fbfbfd);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+/* keep the icon inside the input box */
+.input-wrap { position: relative; }
+
+/* extra left room for the icon */
+.with-icon { padding-left: 46px; }
+
+/* base icon */
+.input-icon {
+  position: absolute;
+  left: 14px;
+  width: 18px;
+  height: 18px;
+  opacity: .9;
+  pointer-events: none;
+}
+
+/* search icon alignment/tint */
+.search-icon {
+  top: 50%;
+  transform: translateY(-56%);  /* a touch higher looks right for the magnifier */
+  color: #6094ff;
+}
+
+/* calendar icon alignment/tint */
+.calendar-icon {
+  top: 65%;
+  transform: translateY(-44%);  /* a touch lower fits the calendar box shape */
+  color: #9b6bff;
+}
+
+/* optional: smaller screens, nudge both a hair */
+@media (max-width: 480px) {
+  .search-icon   { transform: translateY(-54%); }
+  .calendar-icon { transform: translateY(-42%); }
 }
