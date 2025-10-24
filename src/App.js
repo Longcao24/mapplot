@@ -1,11 +1,12 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Routes, Route } from 'react-router-dom';
 import maplibregl from 'maplibre-gl';
 import zipcodes from 'zipcodes';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './App.css';
 import CustomerManagement from './components/CustomerManagement';
 import { apiGetCustomers, apiGetProducts } from './lib/api';
+import RegistrationPage from './pages/RegistrationPage';
 
 // Geocoding cache to avoid repeated API calls
 const geocodeCache = new Map();
@@ -2915,6 +2916,22 @@ Format your response with clear sections and bullet points.`
           alignItems: 'center',
           gap: '12px'
         }}>
+          <button
+            onClick={() => navigate('/register')}
+            style={{
+              padding: '8px 16px',
+              border: '2px solid #e5e7eb',
+              borderRadius: '8px',
+              background: '#ef4444',
+              color: '#ffffff',
+              fontWeight: 600,
+              fontSize: '14px',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            Register
+          </button>
           <button
             onClick={() => setActiveTab('map')}
             style={{
