@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import './CustomerManagementPage.css';
 import { apiGetCustomers, apiCreateCustomer, apiUpdateCustomer, apiDeleteCustomer, apiGeocodeCustomers } from '../lib/api';
 import CSVImport from '../components/CSVImport';
+  import CSVImportFromLink from "../components/CSVImportFromLink";
 
 const CustomerManagementPage = () => {
   const navigate = useNavigate();
@@ -30,6 +31,10 @@ const CustomerManagementPage = () => {
   const [geocodeProgress, setGeocodeProgress] = useState(null);
   const [showGeocodeModal, setShowGeocodeModal] = useState(false);
   const [geocodeResults, setGeocodeResults] = useState(null);
+
+  // state for csv
+  const [showCSVFromLink, setShowCSVFromLink] = useState(false);
+
 
   // Fetch all customer data
   const fetchCustomers = async () => {
@@ -441,6 +446,8 @@ const CustomerManagementPage = () => {
             </svg>
             {geocoding ? 'Geocoding...' : 'Geocode Missing'}
           </button>
+
+          <button onClick={() => setShowCSVFromLink(true)} className="...">Import from Link</button>
           <button onClick={() => setShowCSVImport(true)} className="btn-import">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
@@ -946,6 +953,24 @@ const CustomerManagementPage = () => {
           </div>
         </div>
       )}
+
+
+      {/* modals */}
+      {showCSVImport && (
+        <CSVImport
+          onClose={() => setShowCSVImport(false)}
+          onImportComplete={handleImportComplete}
+        />
+      )}
+
+      {showCSVFromLink && (
+        <CSVImportFromLink
+          onClose={() => setShowCSVFromLink(false)}
+          onImportComplete={handleImportComplete}
+          defaultProduct="AudioSight" // or pull your last selection
+        />
+      )}
+
 
       {/* CSV Import Modal - Using CSVImport Component */}
       {showCSVImport && (
