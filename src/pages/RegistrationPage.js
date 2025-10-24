@@ -42,7 +42,7 @@ const RegistrationPage = () => {
   };
 
   const validateAddress = async () => {
-  const apiKey = 'AIzaSyBvlretLtmUMeIXq-P8eUDx4ndOy7mnguI'; // Replace with your actual API key
+  const apiKey = process.env.REACT_APP_GOOGLE_API_KEY;
   const url = `https://addressvalidation.googleapis.com/v1:validateAddress?key=${apiKey}`;
 
   const combinedAddress = `${formData.address}, ${formData.city}, ${formData.state}`;
