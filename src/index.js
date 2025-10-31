@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import AcceptInvite from "./pages/AcceptInvite";
 import CustomerManagementPage from "./pages/CustomerManagementPage";
 import RegistrationPage from "./pages/RegistrationPage";
+import AnalyticsPage from "./pages/AnalyticsPage";
 import "./index.css";
 
 function Root() {
@@ -19,6 +20,7 @@ function Root() {
         <Route path="/" element={user ? <App /> : <Navigate to="/login" replace />} />
         <Route path="/customers" element={user ? <CustomerManagementPage /> : <Navigate to="/login" replace />} />
         <Route path="/register" element={user ? <RegistrationPage /> : <Navigate to="/login" replace />} />
+        <Route path="/analytics" element={user ? <AnalyticsPage /> : <Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>

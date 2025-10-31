@@ -3,7 +3,7 @@ import './CustomerManagement.css';
 import { apiCreateSampleData, apiGetCustomers } from '../lib/api';
 import { supabase } from '../lib/supabase';
 
-const CustomerManagement = ({ onClose }) => {
+const CustomerManagement = ({ onClose, onDataChange }) => {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -170,8 +170,49 @@ const CustomerManagement = ({ onClose }) => {
     try {
       setLoading(true);
       await apiCreateSampleData();
-      // Refresh data
-      window.location.reload();
+      // Refresh data in parent component
+      if (onDataChange) {
+        onDataChange();
+      }
+      // Also refresh local data
+      const customersData = await apiGetCustomers();
+      const convertedCustomers = customersData.filter(customer => {
+        if (!customer.name && !customer.company) {
+          console.warn('Skipping customer without name or company:', customer);
+          return false;
+        }
+        return true;
+      }).map(customer => ({
+        id: customer.id,
+        type: customer.customer_type || 'customer',
+        name: customer.name,
+        email: customer.email || '',
+        phone: customer.phone || '',
+        company: customer.company || customer.name,
+        address: customer.address || '',
+        city: customer.city || 'Unknown',
+        state: customer.state || 'XX',
+        zip_code: customer.postal_code || '',
+        country: customer.country || 'USA',
+        status: customer.status,
+        certification: customer.role_background || '',
+        registered_at: customer.registered_at || customer.created_at,
+        latitude: customer.latitude,
+        longitude: customer.longitude,
+        products_interested: customer.products_interested ? 
+          (Array.isArray(customer.products_interested) ? 
+            customer.products_interested : 
+            JSON.parse(customer.products_interested || '[]')
+          ) : ['Unknown'],
+        notes: customer.notes || '',
+        last_interaction_date: customer.last_interaction_date,
+        last_interaction_type: customer.last_interaction_type,
+        next_follow_up_date: customer.next_follow_up_date,
+        claimed_by: customer.claimed_by,
+        source_system: customer.source_system
+      }));
+      setCustomers(convertedCustomers);
+      setError(null);
     } catch (err) {
       console.error('Error creating sample data:', err);
       setError(err.message);

@@ -590,7 +590,7 @@
 /* ----------------------------------------------
    YOUR ADDED GLOWY LEGEND DOTS (kept verbatim)
    ---------------------------------------------- */
-/* ---- Legend dot: glossy with colored glow ---- */
+/* ---- Legend dot: simple flat design ---- */
 .legend-dot {
   --sz: 12px;         /* override per dot: 8px, 10px, 12px, etc. */
   width: var(--sz);
@@ -600,31 +600,12 @@
 
   /* fill picks up from the element's text color (set in inline style) */
   background: currentColor;
-  border: 1px solid rgba(255,255,255,0.9);
-
-  /* inner sheen + subtle depth */
-  box-shadow:
-    inset 0 1px 2px rgba(255,255,255,0.85),
-    inset 0 -2px 6px rgba(0,0,0,0.25);
-
-  /* soft colored glow */
-  filter:
-    drop-shadow(0 2px 6px rgba(0,0,0,0.10))
-    drop-shadow(0 0 8px currentColor);
+  border: none;
+  
+  /* simple flat look, no 3D effects */
+  box-shadow: none;
+  filter: none;
   position: relative;
-}
-
-/* highlight spot */
-.legend-dot::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(circle at 30% 30%,
-              rgba(255,255,255,0.95) 0%,
-              rgba(255,255,255,0.55) 18%,
-              rgba(255,255,255,0) 40%);
-  pointer-events: none;
 }
 
 /* ----------------------------------------------

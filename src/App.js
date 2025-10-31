@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
-import { useNavigate, Routes, Route } from 'react-router-dom';
+import { useNavigate, useLocation, Routes, Route } from 'react-router-dom';
 import maplibregl from 'maplibre-gl';
 import zipcodes from 'zipcodes';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -238,6 +238,7 @@ const geocodeAddress = async (address, city = '', state = '', zipCode = '') => {
 
 function App() {
   const navigate = useNavigate();
+  const location = useLocation();
   const mapContainer = useRef(null);
   const map = useRef(null);
   const clusterIndex = useRef(null);
@@ -258,8 +259,8 @@ function App() {
   // Collapsible filter panel
   const [panelOpen, setPanelOpen] = useState(true);
   
-  // Analytics tab state
-  const [activeTab, setActiveTab] = useState('map'); // 'map' or 'analytics'
+  // Tab state (Analytics is now a separate page at /analytics)
+  const [activeTab, setActiveTab] = useState('map');
   
   // AI Insights state
   const [aiInsights, setAiInsights] = useState(null);
@@ -268,6 +269,137 @@ function App() {
   
   // Customer Management state
   const [showCustomerManagement, setShowCustomerManagement] = useState(false);
+
+  // View mode state (admin/customer)
+  const [viewMode, setViewMode] = useState('admin'); // 'admin' or 'customer'
+
+  // Store viewMode in window so event handlers can access it
+  useEffect(() => {
+    window.viewMode = viewMode;
+    console.log('👁️ View mode changed to:', viewMode);
+    
+    // Close filter panel when switching to customer view
+    if (viewMode === 'customer') {
+      setPanelOpen(false);
+    }
+  }, [viewMode]);
+
+  // Handle zoom to new customer location after registration
+  useEffect(() => {
+    const zoomToLocation = location.state?.zoomToLocation;
+    
+    if (zoomToLocation) {
+      const { latitude, longitude, name } = zoomToLocation;
+      console.log('🎯 Registration redirect detected:', { name, latitude, longitude });
+      
+      // Make sure we're on the map tab
+      setActiveTab('map');
+      
+      // Set to admin mode to ensure interaction is enabled
+      setViewMode('admin');
+      
+      // Wait for map to be ready AND sites to be loaded
+      let retryCount = 0;
+      const maxRetries = 30; // 15 seconds max wait (increased for heavy data)
+      
+      const checkAndZoom = () => {
+        retryCount++;
+        console.log(`🔄 Checking map status (attempt ${retryCount}/${maxRetries})...`);
+        
+        // Check if map is ready AND sites have been loaded
+        if (map.current && mapReady && sites.length > 0) {
+          console.log('✅ Map is ready and sites are loaded! Starting zoom sequence...');
+          
+          // Check if the new customer is in the sites array
+          const newCustomer = sites.find(s => 
+            s.name === name && 
+            Math.abs(s.latitude - latitude) < 0.0001 && 
+            Math.abs(s.longitude - longitude) < 0.0001
+          );
+          
+          if (newCustomer) {
+            console.log('✅ New customer found in sites data:', newCustomer);
+          } else {
+            console.log('⚠️ New customer not yet in sites data, but zooming anyway');
+          }
+          
+          // Wait a bit for the map to finish rendering markers
+          setTimeout(() => {
+            console.log('🎯 Executing zoom to:', [longitude, latitude]);
+            
+            // Zoom to the location with animation
+            map.current.flyTo({
+              center: [longitude, latitude],
+              zoom: 15,
+              duration: 2500,
+              essential: true
+            });
+            
+            // Show a welcome popup at the location
+            setTimeout(() => {
+              console.log('💬 Showing welcome popup');
+              const popup = new maplibregl.Popup({ 
+                closeButton: true, 
+                closeOnClick: false,
+                maxWidth: '350px',
+                className: 'registration-success-popup'
+              })
+              .setLngLat([longitude, latitude])
+              .setHTML(`
+                <div style="padding: 16px; font-family: system-ui, -apple-system, sans-serif;">
+                  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                    <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                      ✅
+                    </div>
+                    <div>
+                      <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #111827;">
+                        Welcome to Mapplot!
+                      </h3>
+                      <p style="margin: 4px 0 0 0; font-size: 14px; color: #6b7280;">
+                        Registration successful
+                      </p>
+                    </div>
+                  </div>
+                  <div style="background: #f0fdf4; border-radius: 8px; padding: 12px; margin-top: 12px;">
+                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #374151;">
+                      <strong style="color: #059669;">${name}</strong>
+                    </p>
+                    <p style="margin: 0; font-size: 12px; color: #6b7280; line-height: 1.5;">
+                      Your location has been added to the map. You can now explore other customers and use all features.
+                    </p>
+                  </div>
+                  
+                </div>
+              `)
+              .addTo(map.current);
+              
+              // Auto-close popup after 8 seconds
+              setTimeout(() => {
+                popup.remove();
+              }, 8000);
+            }, 2600);
+          }, 2000); // Increased wait time from 1s to 2s for map rendering
+          
+          // Clear the state to prevent re-zooming on navigation
+          window.history.replaceState({}, document.title);
+        } else if (retryCount < maxRetries) {
+          // Map not ready yet or sites not loaded, check again
+          console.log(`⏳ Waiting... (map: ${!!map.current}, mapReady: ${mapReady}, sites: ${sites.length})`);
+          setTimeout(checkAndZoom, 500);
+        } else {
+          console.error('❌ Map failed to initialize after', maxRetries, 'attempts');
+          console.error('Final state:', { 
+            hasMap: !!map.current, 
+            mapReady, 
+            sitesCount: sites.length 
+          });
+        }
+      };
+      
+      // Start checking after a small delay to ensure component is mounted
+      setTimeout(checkAndZoom, 100);
+    }
+  }, [location.state, mapReady, sites]); // Added sites to dependencies
 
   // ------- Filters state -------
   const [selectedStates, setSelectedStates] = useState([]);
@@ -825,6 +957,25 @@ Format your response with clear sections and bullet points.`
     fetchSites();
     loadProducts();
   }, []);
+
+  // Auto reload data when switching back to map tab
+  useEffect(() => {
+    // Reload when switching to map view to ensure data is fresh
+    if (activeTab === 'map') {
+      console.log(`🔄 Tab changed to: ${activeTab}, reloading data...`);
+      fetchSites();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  // Auto reload data when Customer Management modal opens
+  useEffect(() => {
+    if (showCustomerManagement) {
+      console.log('🔄 Customer Management opened, reloading data...');
+      fetchSites();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCustomerManagement]);
 
   // Options (derived)
   const stateOptions = useMemo(
@@ -1408,30 +1559,215 @@ Format your response with clear sections and bullet points.`
 
       // Cluster click handlers for each product type
       const handleClusterClick = (e, layerId, sourceName) => {
+        // Check if in customer view mode - disable interactions
+        if (window.viewMode === 'customer') {
+          console.log('👁️ Customer view mode: cluster interaction disabled');
+          return;
+        }
+        
+        console.log(`📍 Cluster click handler called for ${layerId}`);
+        
         const features = map.current.queryRenderedFeatures(e.point, { layers: [layerId] });
-        if (!features || !features.length) return;
+        console.log('Features found:', features?.length);
+        
+        if (!features || !features.length) {
+          console.warn('⚠️ No features found at click point');
+          return;
+        }
+        
         const clId = features[0]?.properties?.cluster_id;
-        if (clId == null) return;
+        const pointCount = features[0]?.properties?.point_count;
+        console.log('Cluster ID:', clId, 'Point count:', pointCount);
+        
+        if (clId == null) {
+          console.warn('⚠️ No cluster_id found in feature');
+          return;
+        }
         
         const [lng, lat] = features[0].geometry.coordinates;
         const source = map.current.getSource(sourceName);
         
-        // Get cluster expansion zoom
-        source.getClusterExpansionZoom(clId, (err, zoom) => {
-          if (err) return;
-          map.current.easeTo({
-            center: [lng, lat],
-            zoom: zoom
+        if (!source) {
+          console.error('❌ Source not found:', sourceName);
+          return;
+        }
+        
+        console.log('✅ Getting cluster leaves (customers in cluster)...');
+        
+        // Get all features in this cluster
+        source.getClusterLeaves(clId, pointCount, 0, (err, clusterFeatures) => {
+          if (err) {
+            console.error('❌ Error getting cluster leaves:', err);
+            return;
+          }
+          
+          console.log(`📋 Found ${clusterFeatures.length} customers in cluster`);
+          
+          // Store features for click handlers
+          window.clusterFeatures = clusterFeatures;
+          
+          // Create table HTML for cluster customers
+          const tableRows = clusterFeatures.map((feature, idx) => {
+            const props = feature.properties;
+            const status = props.status;
+            const statusColor = status === 'customer' ? '#10b981' : status === 'prospect' ? '#f59e0b' : '#6b7280';
+            const statusBgColor = status === 'customer' ? '#d1fae5' : status === 'prospect' ? '#fef3c7' : '#f3f4f6';
+            const productType = props.productType || 'Unknown';
+            const name = props.name || 'Customer';
+            const registered = props.registered_at 
+              ? new Date(props.registered_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : 'N/A';
+            
+            return `
+              <tr style="border-bottom: 1px solid #e5e7eb; transition: all 0.2s; cursor: pointer;" 
+                  onmouseover="this.style.background='#eff6ff'; this.style.transform='scale(1.01)'"
+                  onmouseout="this.style.background='white'; this.style.transform='scale(1)'"
+                  onclick="
+                    const features = window.clusterFeatures;
+                    const clickedFeature = features[${idx}];
+                    if (!clickedFeature) return;
+                    
+                    const popup = this.closest('.maplibregl-popup');
+                    if (popup) popup.remove();
+                    
+                    // Show individual customer details
+                    window.showCustomerDetails(clickedFeature);
+                  ">
+                <td style="padding: 12px 6px; color: #6b7280; font-weight: 600;">${idx + 1}</td>
+                <td style="padding: 12px 8px;">
+                  <div style="font-weight: 600; color: #111827; margin-bottom: 4px;">${name}</div>
+                  <div style="font-size: 11px; color: #6b7280;">${props.city || ''}, ${props.state || ''}</div>
+                </td>
+                <td style="padding: 12px 6px;">
+                  <span style="background: ${props.color}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap;">
+                    ${productType}
+                  </span>
+                </td>
+                <td style="padding: 12px 6px;">
+                  <span style="background: ${statusBgColor}; color: ${statusColor}; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: capitalize; white-space: nowrap;">
+                    ${status || 'Unknown'}
+                  </span>
+                </td>
+                <td style="padding: 12px 6px; color: #374151; font-size: 11px; white-space: nowrap;">${registered}</td>
+              </tr>
+            `;
+          }).join('');
+          
+          // Get cluster expansion zoom for the "Zoom In" button
+          source.getClusterExpansionZoom(clId, (err, expansionZoom) => {
+            const zoomLevel = err ? map.current.getZoom() + 2 : expansionZoom;
+            
+            const popupContent = `
+              <div style="font-family: system-ui, sans-serif; max-width: 600px; padding: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb;">
+                  <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #1f2937;">
+                    Cluster Details
+                  </h3>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="background: ${clusterFeatures[0]?.properties.color || '#3b82f6'}; color: white; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600;">
+                      ${clusterFeatures.length} customers
+                    </span>
+                    <button onclick="this.closest('.maplibregl-popup').remove()" 
+                            style="background: #f3f4f6; border: none; font-size: 16px; cursor: pointer; color: #6b7280; padding: 4px 8px; border-radius: 6px; line-height: 1; transition: background 0.2s;"
+                            onmouseover="this.style.background='#e5e7eb'"
+                            onmouseout="this.style.background='#f3f4f6'">
+                      ✕
+                    </button>
+                  </div>
+                </div>
+                <div style="max-height: 400px; overflow-y: auto; margin: -4px; padding: 4px;">
+                  <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                    <thead style="position: sticky; top: 0; z-index: 1; background: #f8fafc;">
+                      <tr style="border-bottom: 2px solid #e5e7eb;">
+                        <th style="padding: 10px 6px; text-align: left; font-weight: 600; color: #374151; font-size: 11px;">#</th>
+                        <th style="padding: 10px 8px; text-align: left; font-weight: 600; color: #374151; font-size: 11px;">Customer</th>
+                        <th style="padding: 10px 6px; text-align: left; font-weight: 600; color: #374151; font-size: 11px;">Product</th>
+                        <th style="padding: 10px 6px; text-align: left; font-weight: 600; color: #374151; font-size: 11px;">Status</th>
+                        <th style="padding: 10px 6px; text-align: left; font-weight: 600; color: #374151; font-size: 11px;">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${tableRows}
+                    </tbody>
+                  </table>
+                </div>
+                <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                  <div style="font-size: 11px; color: #6b7280; flex: 1;">
+                    💡 Click any row to see detailed customer information
+                  </div>
+                  <button onclick="
+                    const map = window.mapInstance;
+                    if (map) {
+                      map.easeTo({
+                        center: [${lng}, ${lat}],
+                        zoom: ${zoomLevel},
+                        duration: 500
+                      });
+                      this.closest('.maplibregl-popup').remove();
+                    }
+                  " style="background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600; transition: background 0.2s;"
+                     onmouseover="this.style.background='#2563eb'"
+                     onmouseout="this.style.background='#3b82f6'">
+                    Zoom In
+                  </button>
+                </div>
+              </div>
+            `;
+            
+            // Store map reference globally for the zoom button
+            window.mapInstance = map.current;
+            
+            popup.setLngLat([lng, lat])
+                 .setHTML(popupContent)
+                 .addTo(map.current);
+            
+            console.log('✅ Cluster popup displayed');
           });
         });
       };
 
       console.log('✅ All map layers and click handlers added successfully');
 
-      // Attach cluster click handlers
-      map.current.on("click", "clusters-sate", (e) => handleClusterClick(e, "clusters-sate", "favorites-sate"));
-      map.current.on("click", "clusters-audiosight", (e) => handleClusterClick(e, "clusters-audiosight", "favorites-audiosight"));
-      map.current.on("click", "clusters-other", (e) => handleClusterClick(e, "clusters-other", "favorites-other"));
+      // Attach cluster click handlers with logging and event prevention
+      // Note: viewMode check is done inside handleClusterClick
+      map.current.on("click", "clusters-sate", (e) => {
+        console.log('🔵 SATE Cluster clicked!');
+        e.preventDefault();
+        handleClusterClick(e, "clusters-sate", "favorites-sate");
+      });
+      map.current.on("click", "clusters-audiosight", (e) => {
+        console.log('🔴 AudioSight Cluster clicked!');
+        e.preventDefault();
+        handleClusterClick(e, "clusters-audiosight", "favorites-audiosight");
+      });
+      map.current.on("click", "clusters-other", (e) => {
+        console.log('🟢 Other Cluster clicked!');
+        e.preventDefault();
+        handleClusterClick(e, "clusters-other", "favorites-other");
+      });
+
+      // Add cursor pointer on hover for clusters (only in admin mode)
+      const clusterLayers = ['clusters-sate', 'clusters-audiosight', 'clusters-other'];
+      const pointLayers = ['points-sate', 'points-audiosight', 'points-other'];
+      
+      [...clusterLayers, ...pointLayers].forEach(layerId => {
+        map.current.on('mouseenter', layerId, () => {
+          // Only show pointer cursor in admin mode
+          if (window.viewMode === 'admin') {
+            map.current.getCanvas().style.cursor = 'pointer';
+          }
+        });
+        map.current.on('mouseleave', layerId, () => {
+          map.current.getCanvas().style.cursor = '';
+        });
+      });
+
+      // Debug: Log all map clicks to diagnose issues
+      map.current.on('click', (e) => {
+        const features = map.current.queryRenderedFeatures(e.point);
+        const layerNames = features.map(f => f.layer.id).join(', ');
+        console.log('🗺️ Map clicked at:', e.lngLat, 'Layers:', layerNames || 'none');
+      });
 
       // Old cluster handler for backward compatibility (not used anymore)
       map.current.on("click", "clusters", (e) => {
@@ -1545,11 +1881,263 @@ Format your response with clear sections and bullet points.`
 
       // Click handler for all point layers
       const handlePointClick = (e) => {
+        // Check if in customer view mode - disable interactions
+        if (window.viewMode === 'customer') {
+          console.log('👁️ Customer view mode: point interaction disabled');
+          return;
+        }
+        
         const feature = e.features?.[0];
         if (!feature) return;
 
-        const { address, city, state, zip_code, customer_id } = feature.properties;
         const [lng, lat] = feature.geometry.coordinates;
+
+        // Query all features at this point across all point layers
+        const allPointLayers = ['points-sate', 'points-audiosight', 'points-other'];
+        let allFeaturesAtLocation = [];
+        
+        allPointLayers.forEach(layerId => {
+          const features = map.current.queryRenderedFeatures(e.point, { 
+            layers: [layerId] 
+          });
+          if (features && features.length > 0) {
+            // Filter features at the exact same location
+            const featuresAtSameLocation = features.filter(f => {
+              const [fLng, fLat] = f.geometry.coordinates;
+              return Math.abs(fLng - lng) < 0.0001 && Math.abs(fLat - lat) < 0.0001;
+            });
+            allFeaturesAtLocation = allFeaturesAtLocation.concat(featuresAtSameLocation);
+          }
+        });
+
+        // If more than 2 customers at the same location, show a list
+        if (allFeaturesAtLocation.length > 2) {
+          // Store features data for onclick handlers
+          window.locationFeatures = allFeaturesAtLocation;
+          
+          const tableRows = allFeaturesAtLocation.map((f, idx) => {
+            const status = f.properties.status;
+            const statusColor = status === 'customer' ? '#10b981' : status === 'prospect' ? '#f59e0b' : '#6b7280';
+            const statusBgColor = status === 'customer' ? '#d1fae5' : status === 'prospect' ? '#fef3c7' : '#f3f4f6';
+            const productType = f.properties.productType || 'Unknown';
+            const name = f.properties.name || 'Customer';
+            const registered = f.properties.registered_at 
+              ? new Date(f.properties.registered_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : 'N/A';
+
+            return `
+              <tr style="border-bottom: 1px solid #e5e7eb; transition: all 0.2s; cursor: pointer;" 
+                  onmouseover="this.style.background='#eff6ff'; this.style.transform='scale(1.01)'"
+                  onmouseout="this.style.background='white'; this.style.transform='scale(1)'"
+                  onclick="
+                    const features = window.locationFeatures;
+                    const clickedFeature = features[${idx}];
+                    if (!clickedFeature) return;
+                    
+                    const popup = this.closest('.maplibregl-popup');
+                    if (popup) popup.remove();
+                    
+                    // Show individual customer details
+                    window.showCustomerDetails(clickedFeature);
+                  ">
+                <td style="padding: 12px 6px; color: #6b7280; font-weight: 600;">${idx + 1}</td>
+                <td style="padding: 12px 8px;">
+                  <div style="font-weight: 600; color: #111827; margin-bottom: 4px;">${name}</div>
+                  <div style="font-size: 11px; color: #6b7280;">${f.properties.city || ''}, ${f.properties.state || ''}</div>
+                </td>
+                <td style="padding: 12px 6px;">
+                  <span style="background: ${f.properties.color}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap;">
+                    ${productType}
+                  </span>
+                </td>
+                <td style="padding: 12px 6px;">
+                  <span style="background: ${statusBgColor}; color: ${statusColor}; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: capitalize; white-space: nowrap;">
+                    ${status || 'Unknown'}
+                  </span>
+                </td>
+                <td style="padding: 12px 6px; color: #374151; font-size: 11px; white-space: nowrap;">${registered}</td>
+              </tr>
+            `;
+          }).join('');
+
+          const locationPopupContent = `
+            <div style="font-family: system-ui, sans-serif; max-width: 550px; padding: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb;">
+                <div>
+                  <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 700; color: #1f2937;">
+                    Multiple Customers at Location
+                  </h3>
+                  <div style="font-size: 12px; color: #6b7280;">
+                    ${feature.properties.address || ''}, ${feature.properties.city || ''}, ${feature.properties.state || ''}
+                  </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="background: #3b82f6; color: white; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600;">
+                    ${allFeaturesAtLocation.length} customers
+                  </span>
+                  <button onclick="this.closest('.maplibregl-popup').remove()" 
+                          style="background: #f3f4f6; border: none; font-size: 16px; cursor: pointer; color: #6b7280; padding: 4px 8px; border-radius: 6px; line-height: 1; transition: background 0.2s;"
+                          onmouseover="this.style.background='#e5e7eb'"
+                          onmouseout="this.style.background='#f3f4f6'">
+                    ✕
+                  </button>
+                </div>
+              </div>
+              <div style="max-height: 400px; overflow-y: auto; margin: -4px; padding: 4px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                  <thead style="position: sticky; top: 0; z-index: 1;">
+                    <tr style="background: #f8fafc; border-bottom: 2px solid #e5e7eb;">
+                      <th style="padding: 10px 6px; text-align: left; font-weight: 600; color: #374151; font-size: 11px;">#</th>
+                      <th style="padding: 10px 8px; text-align: left; font-weight: 600; color: #374151; font-size: 11px;">Customer</th>
+                      <th style="padding: 10px 6px; text-align: left; font-weight: 600; color: #374151; font-size: 11px;">Product</th>
+                      <th style="padding: 10px 6px; text-align: left; font-weight: 600; color: #374151; font-size: 11px;">Status</th>
+                      <th style="padding: 10px 6px; text-align: left; font-weight: 600; color: #374151; font-size: 11px;">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${tableRows}
+                  </tbody>
+                </table>
+              </div>
+              <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #6b7280;">
+                💡 Tip: Click on any row to see detailed customer information
+              </div>
+            </div>
+          `;
+
+          popup.setLngLat([lng, lat])
+               .setHTML(locationPopupContent)
+               .addTo(map.current);
+          
+          // Create global function to show individual customer details
+          window.showCustomerDetails = (feature) => {
+            const { address, city, state, zip_code, customer_id } = feature.properties;
+            const [fLng, fLat] = feature.geometry.coordinates;
+
+            const productsInterestedRaw = feature.properties['product(s)_interested'];
+            const registered_at = feature.properties.registered_at;
+            const status = feature.properties.status;
+
+            let productsArr;
+            if (Array.isArray(productsInterestedRaw)) {
+              productsArr = productsInterestedRaw;
+            } else if (typeof productsInterestedRaw === 'string') {
+              try {
+                productsArr = productsInterestedRaw.trim().startsWith('[')
+                  ? JSON.parse(productsInterestedRaw)
+                  : [productsInterestedRaw];
+              } catch {
+                productsArr = [productsInterestedRaw];
+              }
+            } else if (productsInterestedRaw != null) {
+              productsArr = [String(productsInterestedRaw)];
+            } else {
+              productsArr = [];
+            }
+
+            const productText = productsArr.map(p => String(p)).join(', ');
+            const productType = feature.properties.productType;
+            const statusColor = status === 'customer' ? '#10b981' : status === 'prospect' ? '#f59e0b' : '#6b7280';
+            const statusBgColor = status === 'customer' ? '#d1fae5' : status === 'prospect' ? '#fef3c7' : '#f3f4f6';
+            const name = feature.properties.name || 'Customer';
+
+            const customerPopupContent = `
+              <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 400px; min-width: 320px; padding: 20px;">
+                <!-- Header -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb;">
+                  <div style="flex: 1; margin-right: 16px;">
+                    <h3 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 700; color: #111827; line-height: 1.3;">
+                      ${name}
+                    </h3>
+                    <div style="font-size: 14px; color: #6b7280; line-height: 1.5; margin-bottom: 6px;">
+                      ${address}
+                    </div>
+                    <div style="font-size: 13px; color: #9ca3af;">
+                      ${city}, ${state} ${zip_code}
+                    </div>
+                  </div>
+                  <button onclick="this.closest('.maplibregl-popup').remove()" 
+                          style="background: #f3f4f6; border: none; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; color: #6b7280; font-size: 18px; line-height: 1; transition: all 0.2s; flex-shrink: 0; display: flex; align-items: center; justify-content: center;"
+                          onmouseover="this.style.background='#fee2e2'; this.style.color='#dc2626'"
+                          onmouseout="this.style.background='#f3f4f6'; this.style.color='#6b7280'"
+                          title="Close">
+                    ✕
+                  </button>
+                </div>
+                
+                <!-- Details Grid -->
+                <div style="display: grid; gap: 20px;">
+                  <!-- Customer ID -->
+                  <div style="background: #f9fafb; padding: 16px 20px; border-radius: 10px; border: 1px solid #e5e7eb;">
+                    <div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">
+                      Customer ID
+                    </div>
+                    <div style="font-size: 13px; color: #374151; font-family: 'Monaco', 'Courier New', monospace; word-break: break-all; line-height: 1.5;">
+                      ${customer_id}
+                    </div>
+                  </div>
+                  
+                  <!-- Status and Registration Row -->
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div style="background: ${statusBgColor}; padding: 16px 20px; border-radius: 10px; border: 1px solid ${statusColor}20;">
+                      <div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">
+                        Status
+                      </div>
+                      <div style="font-size: 15px; color: ${statusColor}; font-weight: 700; text-transform: capitalize;">
+                        ${status || 'Unknown'}
+                      </div>
+                    </div>
+                    
+                    <div style="background: #f9fafb; padding: 16px 20px; border-radius: 10px; border: 1px solid #e5e7eb;">
+                      <div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">
+                        Registered
+                      </div>
+                      <div style="font-size: 15px; color: #374151; font-weight: 600;">
+                        ${registered_at ? new Date(registered_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Product Type -->
+                  <div style="background: #f9fafb; padding: 16px 20px; border-radius: 10px; border: 1px solid #e5e7eb;">
+                    <div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+                      Product Type
+                    </div>
+                    <div style="display: inline-block; background: ${feature.properties.color}; color: white; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600;">
+                      ${productType}
+                    </div>
+                  </div>
+                  
+                  <!-- Products List -->
+                  <div style="background: #f9fafb; padding: 16px 20px; border-radius: 10px; border: 1px solid #e5e7eb;">
+                    <div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+                      Products of Interest
+                    </div>
+                    <div style="font-size: 14px; color: #374151; line-height: 1.6;">
+                      ${productText || 'None specified'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `;
+
+            const newPopup = new maplibregl.Popup({ 
+              closeButton: false, 
+              closeOnClick: false,
+              maxWidth: '500px',
+              className: 'cluster-popup'
+            });
+
+            newPopup.setLngLat([fLng, fLat])
+                   .setHTML(customerPopupContent)
+                   .addTo(map.current);
+          };
+          
+          return; // Exit early - don't show individual customer popup
+        }
+
+        // Single customer at location - show detailed popup
+        const { address, city, state, zip_code, customer_id } = feature.properties;
 
         const productsInterestedRaw = feature.properties['product(s)_interested'];
         const registered_at = feature.properties.registered_at;
@@ -2959,27 +3547,23 @@ Format your response with clear sections and bullet points.`
             Map View
           </button>
           <button
-            onClick={() => setActiveTab('analytics')}
+            onClick={() => navigate('/analytics')}
             style={{
               padding: '8px 16px',
               border: '2px solid #e5e7eb',
               borderRadius: '8px',
-              background: activeTab === 'analytics' ? '#3b82f6' : '#ffffff',
-              color: activeTab === 'analytics' ? '#ffffff' : '#374151',
+              background: '#ffffff',
+              color: '#374151',
               fontWeight: 600,
               fontSize: '14px',
               cursor: 'pointer',
               transition: 'all 0.2s'
             }}
             onMouseOver={(e) => {
-              if (activeTab !== 'analytics') {
-                e.currentTarget.style.background = '#f3f4f6';
-              }
+              e.currentTarget.style.background = '#f3f4f6';
             }}
             onMouseOut={(e) => {
-              if (activeTab !== 'analytics') {
-                e.currentTarget.style.background = '#ffffff';
-              }
+              e.currentTarget.style.background = '#ffffff';
             }}
           >
             Analytics
@@ -3010,6 +3594,78 @@ Format your response with clear sections and bullet points.`
           >
             Customer Manager
           </button>
+          
+          {/* View Mode Toggle */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginLeft: '24px',
+            paddingLeft: '24px',
+            borderLeft: '2px solid #e5e7eb'
+          }}>
+            <span style={{
+              fontSize: '13px',
+              color: '#6b7280',
+              fontWeight: 600
+            }}>
+              View:
+            </span>
+            <button
+              onClick={() => setViewMode('admin')}
+              style={{
+                padding: '6px 12px',
+                border: '2px solid #e5e7eb',
+                borderRadius: '8px',
+                background: viewMode === 'admin' ? '#8b5cf6' : '#ffffff',
+                color: viewMode === 'admin' ? '#ffffff' : '#374151',
+                fontWeight: 600,
+                fontSize: '13px',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => {
+                if (viewMode !== 'admin') {
+                  e.currentTarget.style.background = '#f3f4f6';
+                }
+              }}
+              onMouseOut={(e) => {
+                if (viewMode !== 'admin') {
+                  e.currentTarget.style.background = '#ffffff';
+                }
+              }}
+              title="Admin can interact with map markers"
+            >
+              👤 Admin
+            </button>
+            <button
+              onClick={() => setViewMode('customer')}
+              style={{
+                padding: '6px 12px',
+                border: '2px solid #e5e7eb',
+                borderRadius: '8px',
+                background: viewMode === 'customer' ? '#06b6d4' : '#ffffff',
+                color: viewMode === 'customer' ? '#ffffff' : '#374151',
+                fontWeight: 600,
+                fontSize: '13px',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => {
+                if (viewMode !== 'customer') {
+                  e.currentTarget.style.background = '#f3f4f6';
+                }
+              }}
+              onMouseOut={(e) => {
+                if (viewMode !== 'customer') {
+                  e.currentTarget.style.background = '#ffffff';
+                }
+              }}
+              title="Customer view - read-only map"
+            >
+              👁️ Customer
+          </button>
+          </div>
         </div>
       </header>
 
@@ -3017,18 +3673,17 @@ Format your response with clear sections and bullet points.`
       {showCustomerManagement && (
         <CustomerManagement
           onClose={() => setShowCustomerManagement(false)}
+          onDataChange={() => {
+            console.log('🔄 Customer data changed, reloading...');
+            fetchSites();
+          }}
         />
       )}
 
-      {/* Show analytics panel when analytics tab is active */}
-      {activeTab === 'analytics' && (
-        <div style={{ position: 'absolute', top: '70px', left: 0, right: 0, bottom: 0, background: '#f9fafb', zIndex: 1000 }}>
-          <AnalyticsPanel />
-        </div>
-      )}
+      {/* Analytics is now a separate page at /analytics */}
 
-      {/* Floating FAB when panel is closed and on map view */}
-      {!panelOpen && activeTab === 'map' && (
+      {/* Floating FAB when panel is closed and on map view (hide in customer mode) */}
+      {!panelOpen && activeTab === 'map' && viewMode === 'admin' && (
         <button
           aria-label="Open filters"
           onClick={() => setPanelOpen(true)}
@@ -3037,8 +3692,8 @@ Format your response with clear sections and bullet points.`
           <span className="fab-dot" /> Filters
         </button>
       )}
-          {/* Filter Panel with smooth transition - only show on map view */}
-          {activeTab === 'map' && (
+          {/* Filter Panel with smooth transition - only show on map view and in admin mode */}
+          {activeTab === 'map' && viewMode === 'admin' && (
             <div
               className={`filter-panel ${panelOpen ? 'open' : 'closed'}`}
               style={{ '--scale': panelScale }}
@@ -3153,11 +3808,11 @@ Format your response with clear sections and bullet points.`
                       <span>Lead</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span className="legend-dot" style={{ color: '#6b7280', '--sz': '10px' }} />
+                      <span className="legend-dot" style={{ color: '#f59e0b', '--sz': '10px' }} />
                       <span>Prospect</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span className="legend-dot" style={{ color: '#6b7280', '--sz': '12px' }} />
+                      <span className="legend-dot" style={{ color: '#10b981', '--sz': '12px' }} />
                       <span>Customer</span>
                     </div>
                   </div>
@@ -3328,7 +3983,23 @@ Format your response with clear sections and bullet points.`
           )}
 
           {/* Map - only show on map view */}
-          {activeTab === 'map' && <div ref={mapContainer} className="map-container" />}
+          {activeTab === 'map' && (
+            <div 
+              ref={mapContainer} 
+              className="map-container" 
+              style={{
+                position: 'absolute',
+                top: '70px',
+                left: '0',
+                right: '0',
+                bottom: '0',
+                width: '100%',
+                height: 'calc(100vh - 70px)',
+                background: '#f0f0f0',
+                zIndex: 0
+              }}
+            />
+          )}
 
       </div>
     );
