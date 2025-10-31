@@ -3,9 +3,10 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 const MapComp = forwardRef((props, ref) => {
+  const { sites = [] } = props; // Accept sites as a prop
   const mapContainer = useRef(null);
   const map = useRef(null);
-  const marker = useRef(null);
+  const markers = useRef([]); // Store markers
 
   useEffect(() => {
     if (map.current) return; // Prevent reinitialization
@@ -51,6 +52,33 @@ const MapComp = forwardRef((props, ref) => {
     };
   }, []);
 
+  useEffect(() => {
+    // Remove existing markers
+    markers.current.forEach((marker) => marker.remove());
+    markers.current = [];
+
+    // Add new markers for sites
+    if (map.current && sites.length > 0) {
+      sites.forEach((site) => {
+        if (site.latitude && site.longitude) {
+          // Extract first name and last initial
+        const [firstName, lastName] = site.name.split(' ');
+        const lastInitial = lastName ? `${lastName.charAt(0)}.` : '';
+          const marker = new maplibregl.Marker()
+            .setLngLat([site.longitude, site.latitude])
+            .setPopup(
+              new maplibregl.Popup({ offset: 25 }).setText(
+                `${firstName} ${lastInitial} (${site.city}, ${site.state})`
+              )
+            )
+            .addTo(map.current);
+
+          markers.current.push(marker);
+        }
+      });
+    }
+  }, [sites]);
+
   // Expose methods to parent via ref
   useImperativeHandle(ref, () => ({
     zoomToLocation: (latitude, longitude) => {
@@ -60,15 +88,6 @@ const MapComp = forwardRef((props, ref) => {
           zoom: 14,
           essential: true,
         });
-
-        // Add or update the marker
-        if (!marker.current) {
-          marker.current = new maplibregl.Marker()
-            .setLngLat([longitude, latitude])
-            .addTo(map.current);
-        } else {
-          marker.current.setLngLat([longitude, latitude]);
-        }
       }
     },
   }));

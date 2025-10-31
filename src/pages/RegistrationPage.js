@@ -1,12 +1,18 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthLayout from "../components/AuthLayout";
 import MapComp from "../pages/MapComp";
 import { supabase } from "../lib/supabase";
+import { useCustomerData } from "../hooks/useCustomerData";
+import { apiGetCustomers, apiGetProducts } from '../lib/api';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
 const RegistrationPage = () => {
   const navigate = useNavigate();
-  
+  const { sites, loading, error } = useCustomerData();
+  const [nearbyMarkersCount, setNearbyMarkersCount] = useState(0);
+
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -47,6 +53,19 @@ const RegistrationPage = () => {
       }));
     }
   };
+
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const toRadians = (degrees) => (degrees * Math.PI) / 180;
+  const R = 6371; // Radius of the Earth in kilometers
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in kilometers
+};
 
   const validateAddress = async () => {
   const apiKey = process.env.REACT_APP_GOOGLE_API_KEY;
@@ -97,9 +116,23 @@ const RegistrationPage = () => {
         }));
 
         if (mapRef.current) {
-            mapRef.current.zoomToLocation(latitude, longitude);
-          }
+          
+          mapRef.current.zoomToLocation(latitude, longitude);
 
+          // Calculate nearby markers interested in the same product
+          const radius = 200; // Radius in kilometers
+          const sameProductMarkers = sites.filter((site) => {
+            console.log('Sites data:', site.latitude, latitude);
+            const distance = calculateDistance(latitude, longitude, site.latitude, site.longitude);
+            // const isInterested = Object.keys(formData.productInterest).some(
+            //   (product) => formData.productInterest[product] && site.products_interested?.includes(product)
+            // );
+            return distance <= radius;
+          });
+
+          setNearbyMarkersCount(sameProductMarkers.length);
+          console.log(`Found ${sameProductMarkers.length} nearby markers interested in the same product.`);
+        }
       }
     } else {
       setValidatedAddress('');
@@ -390,7 +423,14 @@ const RegistrationPage = () => {
         </button>
       </form>
       {/* Include the Map */}
-      <MapComp ref={mapRef} />
+      <MapComp ref={mapRef} sites={sites} />
+
+        {nearbyMarkersCount > 0 && (
+  <p style={{ marginTop: 10, color: '#3b82f6' }}>
+    There are {nearbyMarkersCount} people near you that are interested in the same product!
+  </p>
+)}
+
     </AuthLayout>
   );
 };
