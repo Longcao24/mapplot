@@ -1,0 +1,52 @@
+/* MapModule wrapper styles */
+.map-module-wrapper {
+  width: 100%;
+  min-height: 600px;
+  height: calc(100vh - 300px);
+  max-height: 900px;
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #f3f4f6;
+}
+
+/* Override App header styles when in module mode */
+.map-module-wrapper .App > header {
+  position: relative !important;
+  top: 0 !important;
+  z-index: 10 !important;
+}
+
+/* Adjust map container for module mode */
+.map-module-wrapper .map-container {
+  position: relative !important;
+  top: 0 !important;
+  height: 100% !important;
+}
+
+/* Adjust filter panel positioning for module */
+.map-module-wrapper .filter-panel {
+  position: absolute !important;
+  top: 86px !important;
+  left: 16px !important;
+}
+
+.map-module-wrapper .fab-open {
+  position: absolute !important;
+  top: 86px !important;
+  left: 16px !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .map-module-wrapper {
+    min-height: 500px;
+    height: calc(100vh - 400px);
+  }
+  
+  .map-module-wrapper .filter-panel {
+    width: 90vw;
+    max-width: 360px;
+  }
+}
+

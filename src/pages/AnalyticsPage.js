@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { apiGetCustomers } from '../lib/api';
 import { renderMarkdown } from '../utils/markdown';
+import './CRMDashboard.css';
 
 const AnalyticsPage = () => {
-  const navigate = useNavigate();
   const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -198,7 +197,7 @@ Keep insights concise, actionable, and data-driven. Use markdown formatting.`;
           'X-Title': 'Customer Atlas CRM'
         },
         body: JSON.stringify({
-          model: 'google/gemma-2-27b-it:free',
+          model: 'google/gemma-3-27b-it:free',
           messages: [
             {
               role: 'user',
@@ -300,52 +299,22 @@ Keep insights concise, actionable, and data-driven. Use markdown formatting.`;
     : '0.0';
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
-      {/* Header */}
-      <header style={{
-        position: 'sticky',
-        top: 0,
-        background: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid #e5e7eb',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-        zIndex: 100,
-        padding: '16px 32px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <button
-              onClick={() => navigate('/')}
-              style={{
-                padding: '8px 12px',
-                background: '#fff',
-                border: '2px solid #e5e7eb',
-                borderRadius: 8,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                fontSize: 14,
-                fontWeight: 600,
-                color: '#374151'
-              }}
-            >
-              ← Back to Map
-            </button>
-            <div>
-              <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: '#111827' }}>
-                Analytics Dashboard
-              </h1>
-              <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
-                Comprehensive overview of customer data and insights
-              </p>
-            </div>
+    <div className="analytics-page-content">
+      {/* Page Title */}
+      <div className="crm-page-header">
+        <div className="page-header-content">
+          <div>
+            <h1>Analytics Dashboard</h1>
+            <p>Comprehensive overview of customer data and insights</p>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
-      <div style={{ padding: 32 }}>
+      <div style={{ 
+        padding: 32,
+        boxSizing: 'border-box'
+      }}>
         {/* KPI Cards */}
         <div style={{ 
           display: 'grid', 

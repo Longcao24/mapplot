@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthLayout from "../components/AuthLayout";
-import MapComp from "../pages/MapComp";
+import SimpleMap from "../components/SimpleMap";
 import { supabase } from "../lib/supabase";
 import { useCustomerData } from "../hooks/useCustomerData";
 import { apiGetCustomers, apiGetProducts } from '../lib/api';
@@ -33,7 +33,7 @@ const RegistrationPage = () => {
   const [submitError, setSubmitError] = useState(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  const mapRef = useRef(null); // Reference to the MapComp
+  const mapRef = useRef(null); // Reference to the SimpleMap
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -423,6 +423,7 @@ const RegistrationPage = () => {
         </button>
       </form>
       {/* Include the Map */}
+<<<<<<< HEAD
       <MapComp ref={mapRef} sites={sites} />
 
         {nearbyMarkersCount > 0 && (
@@ -431,6 +432,9 @@ const RegistrationPage = () => {
   </p>
 )}
 
+=======
+      <SimpleMap ref={mapRef} />
+>>>>>>> 0c83471 (Update CRM UI + Mail service + Google Calander + Tasks manegement + Dashboard + Radius filter)
     </AuthLayout>
   );
 };

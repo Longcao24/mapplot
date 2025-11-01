@@ -1,0 +1,2 @@
+export { useMapManager } from './useMapManager';
+

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import './CustomerManagementPage.css';
+import './CRMDashboard.css';
 import { apiGetCustomers, apiCreateCustomer, apiUpdateCustomer, apiDeleteCustomer, apiGeocodeCustomers } from '../lib/api';
 import CSVImport from '../components/CSVImport';
-  import CSVImportFromLink from "../components/CSVImportFromLink";
+import CSVImportFromLink from "../components/CSVImportFromLink";
+import EmailComposer from '../components/EmailComposer';
 
 const CustomerManagementPage = () => {
-  const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -34,6 +34,14 @@ const CustomerManagementPage = () => {
 
   // state for csv
   const [showCSVFromLink, setShowCSVFromLink] = useState(false);
+
+  // Email state
+  const [showEmailComposer, setShowEmailComposer] = useState(false);
+  const [emailCustomer, setEmailCustomer] = useState(null);
+  
+  // Bulk selection state
+  const [selectedCustomers, setSelectedCustomers] = useState([]);
+  const [showBulkEmailComposer, setShowBulkEmailComposer] = useState(false);
 
 
   // Fetch all customer data
@@ -192,7 +200,21 @@ const CustomerManagementPage = () => {
 
   // Handle edit customer
   const handleEditCustomer = (customer) => {
-    setEditFormData({ ...customer });
+    setEditFormData({
+      name: customer.name || '',
+      email: customer.email || '',
+      phone: customer.phone || '',
+      company: customer.company || '',
+      address: customer.address || '',
+      city: customer.city || '',
+      state: customer.state || '',
+      zip_code: customer.zip_code || '',
+      country: customer.country || 'USA',
+      status: customer.status || 'lead',
+      type: customer.type || 'customer',
+      products_interested: customer.products_interested || [],
+      notes: customer.notes || ''
+    });
     setSelectedCustomer(customer);
     setShowEditModal(true);
   };
@@ -252,6 +274,60 @@ const CustomerManagementPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle email customer
+  const handleEmailCustomer = (customer) => {
+    if (!customer.email) {
+      alert('This customer does not have an email address.');
+      return;
+    }
+    setEmailCustomer(customer);
+    setShowEmailComposer(true);
+  };
+
+  const handleEmailSent = () => {
+    console.log('Email sent successfully');
+    // Could add a success notification here
+  };
+
+  // Handle bulk selection
+  const handleSelectCustomer = (customerId) => {
+    setSelectedCustomers(prev => {
+      if (prev.includes(customerId)) {
+        return prev.filter(id => id !== customerId);
+      } else {
+        return [...prev, customerId];
+      }
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedCustomers.length === paginatedCustomers.length) {
+      setSelectedCustomers([]);
+    } else {
+      setSelectedCustomers(paginatedCustomers.map(c => c.id));
+    }
+  };
+
+  // Handle bulk email
+  const handleBulkEmail = () => {
+    const customersWithEmail = customers.filter(c => 
+      selectedCustomers.includes(c.id) && c.email
+    );
+    
+    if (customersWithEmail.length === 0) {
+      alert('None of the selected customers have email addresses.');
+      return;
+    }
+    
+    setShowBulkEmailComposer(true);
+  };
+
+  const handleBulkEmailSent = () => {
+    console.log('Bulk emails sent successfully');
+    setSelectedCustomers([]);
+    setShowBulkEmailComposer(false);
   };
 
   // Handle CSV import completion
@@ -343,130 +419,64 @@ const CustomerManagementPage = () => {
   }
 
   return (
-    <div className="customer-page">
-      {/* Header with Logo */}
-      <header style={{
-        background: 'rgba(255, 255, 255, 0.75)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(229, 231, 235, 0.5)',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.06)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '16px 24px',
-        marginBottom: '20px'
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '16px'
-        }}>
-          <img 
-            src="/logo.png" 
-            alt="Customer Atlas Logo" 
-            style={{
-              height: '48px',
-              width: 'auto',
-              objectFit: 'contain'
-            }}
-          />
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '2px'
-          }}>
-            <h1 style={{
-              margin: 0,
-              fontSize: '24px',
-              fontWeight: 700,
-              color: '#111827',
-              letterSpacing: '-0.5px'
-            }}>
-              Customer Atlas
-            </h1>
-            <p style={{
-              margin: 0,
-              fontSize: '13px',
-              color: '#6b7280',
-              fontWeight: 400
-            }}>
-              Customer Management
-            </p>
+    <div className="customer-page-content">
+      {/* Page Title and Actions */}
+      <div className="crm-page-header">
+        <div className="page-header-content">
+          <div>
+            <h1>Customer Management</h1>
+            <p>Total: {customers.length} | Showing: {filteredAndSortedCustomers.length} | Page {currentPage} of {totalPages}</p>
+            {selectedCustomers.length > 0 && (
+              <p style={{ color: '#3b82f6', fontWeight: 600, marginTop: '4px' }}>
+                {selectedCustomers.length} customer{selectedCustomers.length > 1 ? 's' : ''} selected
+              </p>
+            )}
           </div>
-        </div>
-        <button 
-          onClick={() => navigate('/')} 
-          style={{
-            padding: '8px 16px',
-            border: '2px solid #3b82f6',
-            borderRadius: '8px',
-            background: '#3b82f6',
-            color: '#ffffff',
-            fontWeight: 600,
-            fontSize: '14px',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.background = '#2563eb';
-            e.currentTarget.style.transform = 'translateY(-1px)';
-            e.currentTarget.style.boxShadow = '0 4px 8px rgba(59, 130, 246, 0.3)';
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.background = '#3b82f6';
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = 'none';
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="19" y1="12" x2="5" y2="12"/>
-            <polyline points="12 19 5 12 12 5"/>
-          </svg>
-          Back to Map
-        </button>
-      </header>
+          <div className="page-filters">
+            {selectedCustomers.length > 0 && (
+              <button 
+                onClick={handleBulkEmail} 
+                className="btn-action" 
+                style={{ background: '#8b5cf6', borderColor: '#8b5cf6', color: 'white' }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                  <polyline points="22,6 12,13 2,6"/>
+                </svg>
+                Email {selectedCustomers.length} Customer{selectedCustomers.length > 1 ? 's' : ''}
+              </button>
+            )}
+            <button onClick={handleGeocodeCustomers} className="btn-action" style={{ background: '#f59e0b', borderColor: '#f59e0b', color: 'white' }} disabled={geocoding}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 2v20M2 12h20"/>
+              </svg>
+              {geocoding ? 'Geocoding...' : 'Geocode Missing'}
+            </button>
 
-      {/* Header */}
-      <div className="page-header">
-        <div className="header-left">
-          <h1>Customer Management</h1>
-          <p className="header-subtitle">
-            Total: {customers.length} | Showing: {filteredAndSortedCustomers.length} | Page {currentPage} of {totalPages}
-          </p>
-        </div>
-        <div className="header-actions">
-          <button onClick={handleGeocodeCustomers} className="btn-import" style={{ background: '#f59e0b', borderColor: '#f59e0b' }} disabled={geocoding}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M12 2v20M2 12h20"/>
-            </svg>
-            {geocoding ? 'Geocoding...' : 'Geocode Missing'}
-          </button>
-
-          <button onClick={() => setShowCSVFromLink(true)} className="...">Import from Link</button>
-          <button onClick={() => setShowCSVImport(true)} className="btn-import">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
-            </svg>
-            Import CSV
-          </button>
-          <button onClick={handleCreateCustomer} className="btn-create">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="16"/>
-              <line x1="8" y1="12" x2="16" y2="12"/>
-            </svg>
-            Create Customer
-          </button>
+            <button onClick={() => setShowCSVFromLink(true)} className="btn-action">
+              Import from Link
+            </button>
+            <button onClick={() => setShowCSVImport(true)} className="btn-action">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+              </svg>
+              Import CSV
+            </button>
+            <button onClick={handleCreateCustomer} className="btn-action" style={{ background: '#10b981', borderColor: '#10b981', color: 'white' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="16"/>
+                <line x1="8" y1="12" x2="16" y2="12"/>
+              </svg>
+              Create Customer
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="filters-section">
+      <div className="crm-filters-section">
         <div className="search-container">
           <input
             type="text"
@@ -554,10 +564,19 @@ const CustomerManagementPage = () => {
       </div>
 
       {/* Customer Table */}
-      <div className="table-container">
+      <div className="crm-table-container">
         <table className="customer-table">
           <thead>
             <tr>
+              <th style={{ width: '40px' }}>
+                <input
+                  type="checkbox"
+                  checked={paginatedCustomers.length > 0 && selectedCustomers.length === paginatedCustomers.length}
+                  onChange={handleSelectAll}
+                  className="customer-checkbox"
+                  title="Select All"
+                />
+              </th>
               <th onClick={() => handleSort('name')} className="sortable">
                 Name {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
@@ -583,6 +602,15 @@ const CustomerManagementPage = () => {
           <tbody>
             {paginatedCustomers.map((customer) => (
               <tr key={customer.id} className="customer-row">
+                <td style={{ width: '40px', textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedCustomers.includes(customer.id)}
+                    onChange={() => handleSelectCustomer(customer.id)}
+                    className="customer-checkbox"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </td>
                 <td>
                   <div className="customer-name">
                     <strong>{customer.name}</strong>
@@ -636,6 +664,17 @@ const CustomerManagementPage = () => {
                       </svg>
                     </button>
                     <button
+                      onClick={() => handleEmailCustomer(customer)}
+                      className="btn-email"
+                      title="Send Email"
+                      disabled={!customer.email}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                        <polyline points="22,6 12,13 2,6"/>
+                      </svg>
+                    </button>
+                    <button
                       onClick={() => handleEditCustomer(customer)}
                       className="btn-edit"
                       title="Edit Customer"
@@ -671,7 +710,7 @@ const CustomerManagementPage = () => {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="pagination">
+        <div className="crm-pagination">
           <button
             onClick={() => setCurrentPage(1)}
             disabled={currentPage === 1}
@@ -977,6 +1016,30 @@ const CustomerManagementPage = () => {
         <CSVImport 
           onImportComplete={handleImportComplete}
           onClose={() => setShowCSVImport(false)}
+        />
+      )}
+
+      {/* Single Email Composer Modal */}
+      {showEmailComposer && emailCustomer && (
+        <EmailComposer
+          customer={emailCustomer}
+          onClose={() => {
+            setShowEmailComposer(false);
+            setEmailCustomer(null);
+          }}
+          onSendComplete={handleEmailSent}
+        />
+      )}
+
+      {/* Bulk Email Composer Modal */}
+      {showBulkEmailComposer && (
+        <EmailComposer
+          customers={customers.filter(c => selectedCustomers.includes(c.id) && c.email)}
+          isBulk={true}
+          onClose={() => {
+            setShowBulkEmailComposer(false);
+          }}
+          onSendComplete={handleBulkEmailSent}
         />
       )}
 
