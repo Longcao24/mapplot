@@ -1,11 +1,11 @@
-import { useState, useMemo, useRef } from 'react';
-import { normalizeProducts, parseFlexibleDate } from '../utils/customerData';
+import { useState, useMemo } from 'react';
 
 /**
- * Custom hook for managing customer filters
+ * useCustomerFilters Hook
+ * Manages filter state and applies filters to customer data
+ * Max lines: 200 (per hook rules)
  */
-export const useCustomerFilters = (sites, availableProducts) => {
-  // Filter state
+export function useCustomerFilters(sites, availableProducts) {
   const [selectedStates, setSelectedStates] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [statuses, setStatuses] = useState(new Set());
@@ -13,47 +13,75 @@ export const useCustomerFilters = (sites, availableProducts) => {
   const [dateTo, setDateTo] = useState('');
   const [zipQuery, setZipQuery] = useState('');
 
-  // Refs to keep scroll position of multi-selects
-  const stateSelectRef = useRef(null);
-  const productSelectRef = useRef(null);
-
-  // Options (derived)
+  // Derive state and product options from sites
   const stateOptions = useMemo(
     () => Array.from(new Set(sites.map(s => s.state))).sort(),
     [sites]
   );
-  
+
   const productOptions = useMemo(
     () => availableProducts.map(p => p.name),
     [availableProducts]
   );
 
-  // Check if all products are selected
-  const allProductsSelected = useMemo(
-    () => productOptions.every(p => selectedProducts.includes(p)) && selectedProducts.length > 0,
-    [selectedProducts, productOptions]
-  );
+  // Helper to normalize products array
+  const normalizeProducts = (raw) => {
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+      try {
+        const maybeArr = JSON.parse(raw);
+        return Array.isArray(maybeArr) ? maybeArr : [raw];
+      } catch {
+        return [raw];
+      }
+    }
+    if (raw != null) return [String(raw)];
+    return [];
+  };
 
-  // Apply filters (show ALL when nothing selected)
+  // Date parser: allow ONLY "yyyy" or "mm-dd-yyyy"
+  const parseFlexibleDate = (str, isEnd) => {
+    if (!str || !str.trim()) return null;
+    const s = str.trim();
+
+    // yyyy
+    if (/^\d{4}$/.test(s)) {
+      const y = parseInt(s, 10);
+      return isEnd
+        ? new Date(y, 11, 31, 23, 59, 59, 999).getTime()
+        : new Date(y, 0, 1, 0, 0, 0, 0).getTime();
+    }
+
+    // mm-dd-yyyy
+    const m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (m) {
+      const mm = Math.max(1, Math.min(12, parseInt(m[1], 10))) - 1;
+      const dd = Math.max(1, Math.min(31, parseInt(m[2], 10)));
+      const yy = parseInt(m[3], 10);
+      return new Date(yy, mm, dd, isEnd ? 23 : 0, isEnd ? 59 : 0, isEnd ? 59 : 0, isEnd ? 999 : 0).getTime();
+    }
+
+    return null;
+  };
+
+  // Apply filters
+  // Note: Zip code filtering is now handled by radius filter in MapViewPage
   const filteredSites = useMemo(() => {
     if (!sites.length) return [];
 
     let fromTs = parseFlexibleDate(dateFrom, false);
-    let toTs   = parseFlexibleDate(dateTo, true);
+    let toTs = parseFlexibleDate(dateTo, true);
 
     if (fromTs && toTs && fromTs > toTs) {
-      const tmp = fromTs; fromTs = toTs; toTs = tmp; // swap if reversed
+      const tmp = fromTs;
+      fromTs = toTs;
+      toTs = tmp;
     }
-
-    // cleaned zip entered (digits only, 5 max)
-    const zipClean = (zipQuery || '').replace(/\D/g, '').slice(0, 5);
-    const applyZip = zipClean.length === 5;
 
     const prodSel = new Set(selectedProducts);
 
     return sites.filter(site => {
       if (selectedStates.length && !selectedStates.includes(site.state)) return false;
-
       if (statuses.size && !statuses.has(site.status)) return false;
 
       if (fromTs || toTs) {
@@ -63,17 +91,10 @@ export const useCustomerFilters = (sites, availableProducts) => {
         if (toTs && ts > toTs) return false;
       }
 
-      if (applyZip) {
-        const z = String(site.zip_code ?? '');
-        // normalize to 5-digit string for comparison
-        const z5 = z.padStart(5, '0').slice(-5);
-        if (z5 !== zipClean) return false;
-      }
+      // Removed exact zip code match filter - now handled by radius filter
 
-      // --- Product filter (checkboxes: match ANY selected product) ---
       if (prodSel.size) {
         const prods = normalizeProducts(site['product(s)_interested']).map(p => String(p));
-        // Case-insensitive matching
         const prodsLower = new Set(prods.map(p => p.toLowerCase()));
         const selLower = Array.from(prodSel).map(p => p.toLowerCase());
         const hasAny = selLower.some(sel => prodsLower.has(sel));
@@ -82,10 +103,19 @@ export const useCustomerFilters = (sites, availableProducts) => {
 
       return true;
     });
-  }, [sites, selectedStates, selectedProducts, statuses, dateFrom, dateTo, zipQuery]);
+  }, [sites, selectedStates, selectedProducts, statuses, dateFrom, dateTo]);
+
+  // Reset all filters
+  const resetFilters = () => {
+    setSelectedStates([]);
+    setSelectedProducts([]);
+    setStatuses(new Set());
+    setDateFrom('');
+    setDateTo('');
+    setZipQuery('');
+  };
 
   return {
-    // State
     selectedStates,
     setSelectedStates,
     selectedProducts,
@@ -98,18 +128,9 @@ export const useCustomerFilters = (sites, availableProducts) => {
     setDateTo,
     zipQuery,
     setZipQuery,
-    
-    // Refs
-    stateSelectRef,
-    productSelectRef,
-    
-    // Derived values
+    filteredSites,
     stateOptions,
     productOptions,
-    allProductsSelected,
-    filteredSites
+    resetFilters
   };
-};
-
-
-
+}

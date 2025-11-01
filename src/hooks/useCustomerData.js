@@ -1,51 +1,36 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { apiGetCustomers, apiGetProducts } from '../lib/api';
+import { PRODUCT_COLORS, FALLBACK_COLORS, STATUS_SIZES } from '../constants/colors';
 
 /**
- * Custom hook for fetching and managing customer data and products
+ * useCustomerData Hook
+ * Manages customer data fetching and processing
+ * Max lines: 200 (per hook rules)
  */
-export const useCustomerData = () => {
+export function useCustomerData() {
   const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [availableProducts, setAvailableProducts] = useState([]);
 
-  // Function to fetch and refresh sites data
-  const fetchSites = async () => {
+  // Fetch sites data from Supabase
+  const fetchSites = useCallback(async () => {
     try {
       setLoading(true);
-      
-      // Fetch ALL customer data from Supabase (not just sites)
       const sitesData = await apiGetCustomers().catch(() => []);
       
       console.log('Fetched sites data:', sitesData.length, 'total customers');
       
-      // Convert data to consistent format for the map
-      // Note: Geocoding happens during CSV import, not here!
       const convertedSites = sitesData.map(site => {
         const latitude = site.latitude;
         const longitude = site.longitude;
         
-        // Log warning for sites without coordinates (but don't geocode them here)
         if (!latitude || !longitude) {
-          console.warn('⚠️ Site missing coordinates (will not appear on map):', {
+          console.warn('⚠️ Site missing coordinates:', {
             id: site.id,
             name: site.name || site.company,
             city: site.city,
-            state: site.state,
-            zip: site.postal_code,
-            products: site.products_interested
-          });
-        }
-        
-        // Log AudioSight customers specifically for debugging
-        if (site.products_interested && Array.isArray(site.products_interested) && 
-            site.products_interested.some(p => p.toLowerCase() === 'audiosight')) {
-          console.log('🔴 AudioSight customer:', {
-            name: site.name || site.company,
-            city: site.city,
-            state: site.state,
-            coords: [latitude, longitude]
+            state: site.state
           });
         }
         
@@ -53,6 +38,9 @@ export const useCustomerData = () => {
           id: site.id,
           customer_id: site.claimed_by || site.id,
           name: site.name || site.company || 'Unknown Customer',
+          email: site.email || '',
+          phone: site.phone || '',
+          company: site.company || '',
           address: site.address || 'Unknown Address',
           city: site.city || 'Unknown',
           state: site.state || 'XX',
@@ -65,12 +53,14 @@ export const useCustomerData = () => {
             new Date().toISOString().split('T')[0],
           status: site.status || 'new',
           customer_type: site.customer_type || 'customer',
-          source_system: site.source_system || 'unknown'
+          source_system: site.source_system || 'unknown',
+          notes: site.notes || ''
         };
       });
       
       const sitesWithCoords = convertedSites.filter(s => s.latitude && s.longitude).length;
-      console.log(`✅ Loaded ${convertedSites.length} sites (${sitesWithCoords} with coordinates)`);
+      const sitesWithEmail = convertedSites.filter(s => s.email && s.email.trim()).length;
+      console.log(`✅ Loaded ${convertedSites.length} sites (${sitesWithCoords} with coordinates, ${sitesWithEmail} with email)`);
       
       setSites(convertedSites);
       setError(null);
@@ -80,28 +70,16 @@ export const useCustomerData = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Function to load available products from Supabase
-  const loadProducts = async () => {
+  // Load available products from Supabase
+  const loadProducts = useCallback(async () => {
     try {
       const products = await apiGetProducts();
       console.log('✅ Loaded products from database:', products);
       setAvailableProducts(products);
-      
-      // Log color assignments for debugging
-      products.forEach(p => {
-        const productLower = p.name.toLowerCase();
-        const colorMap = {
-          'audiosight': '#ef4444', 
-          'sate': '#3b82f6',       
-          'armrehab': '#10b981',   
-        };
-        console.log(`  → ${p.name}: ${colorMap[productLower] || 'default'}`);
-      });
     } catch (error) {
       console.error('Failed to load products:', error);
-      // Fallback to default products if loading fails (match database casing)
       const fallbackProducts = [
         { id: 'audiosight', name: 'AudioSight', description: 'Audio and hearing assessment technology' },
         { id: 'sate', name: 'SATE', description: 'Speech and auditory training equipment' }
@@ -109,23 +87,80 @@ export const useCustomerData = () => {
       console.log('⚠️ Using fallback products:', fallbackProducts);
       setAvailableProducts(fallbackProducts);
     }
-  };
+  }, []);
 
-  // Fetch sites data and products on component mount
+  // Helper function to determine product type for coloring
+  const getProductType = useCallback((productsRaw) => {
+    const normalizeProducts = (raw) => {
+      if (Array.isArray(raw)) return raw;
+      if (typeof raw === 'string') {
+        try {
+          const maybeArr = JSON.parse(raw);
+          return Array.isArray(maybeArr) ? maybeArr : [raw];
+        } catch {
+          return [raw];
+        }
+      }
+      if (raw != null) return [String(raw)];
+      return [];
+    };
+
+    const products = normalizeProducts(productsRaw).map(p => {
+      const productName = String(p);
+      const matchedProduct = availableProducts.find(ap => 
+        ap.name.toLowerCase() === productName.toLowerCase()
+      );
+      return matchedProduct ? matchedProduct.name : productName;
+    });
+    
+    const matchedProducts = products.filter(p => 
+      availableProducts.some(ap => ap.name.toLowerCase() === p.toLowerCase())
+    );
+    
+    if (matchedProducts.length > 1) return 'Multiple Products';
+    if (matchedProducts.length === 1) return matchedProducts[0];
+    return products.length > 0 ? products[0] : 'Other';
+  }, [availableProducts]);
+
+  // Helper function to get color based on product type
+  const getProductColor = useCallback((productType) => {
+    if (productType === 'Multiple Products') return PRODUCT_COLORS.multiple;
+    
+    const productLower = productType.toLowerCase();
+    
+    if (PRODUCT_COLORS[productLower]) {
+      return PRODUCT_COLORS[productLower];
+    }
+    
+    const productIndex = availableProducts.findIndex(p => 
+      p.name.toLowerCase() === productLower
+    );
+    if (productIndex >= 0) {
+      return FALLBACK_COLORS[productIndex % FALLBACK_COLORS.length];
+    }
+    
+    return '#6b7280'; // Gray fallback
+  }, [availableProducts]);
+
+  // Helper function to get size based on status
+  const getStatusSize = useCallback((status) => {
+    return STATUS_SIZES[status] || 8;
+  }, []);
+
+  // Load data on mount
   useEffect(() => {
     fetchSites();
     loadProducts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchSites, loadProducts]);
 
   return {
     sites,
     loading,
     error,
     availableProducts,
-    fetchSites
+    fetchSites,
+    getProductType,
+    getProductColor,
+    getStatusSize
   };
-};
-
-
-
+}
