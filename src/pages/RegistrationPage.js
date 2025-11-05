@@ -6,6 +6,8 @@ import { supabase } from "../lib/supabase";
 import { useCustomerData } from "../hooks/useCustomerData";
 import { geocodeZipcode } from "../utils/geocoding"; // keep this path as your helper
 import 'maplibre-gl/dist/maplibre-gl.css';
+import './RegistrationPage.css';
+
 
 const RegistrationPage = () => {
   const navigate = useNavigate();
@@ -234,81 +236,102 @@ const RegistrationPage = () => {
   };
 
   return (
-    <AuthLayout title="Register" subtitle="Create an account to access the platform.">
-      <form onSubmit={handleSubmit}>
-        <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>
+    // inside return (
+<AuthLayout title="Register" subtitle="Create an account to access the platform.">
+  <div className="center-auth">
+  <div className="registration-page">
+    <div className="registration-container">
+      
+
+      <form className="registration-form" onSubmit={handleSubmit}>
+        <p className="helper">
           Fields marked with <span style={{ color: 'red' }}>*</span> are required.
         </p>
 
-        <label className="form-label">First Name <span style={{ color: 'red' }}>*</span></label>
-        <input className="form-input" type="text" name="firstName" value={formData.firstName} onChange={handleChange} required />
-
-        <label className="form-label" style={{ marginTop: 10 }}>Last Name <span style={{ color: 'red' }}>*</span></label>
-        <input className="form-input" type="text" name="lastName" value={formData.lastName} onChange={handleChange} required />
-
-        <label className="form-label" style={{ marginTop: 10 }}>Email <span style={{ color: 'red' }}>*</span></label>
-        <input className="form-input" type="email" name="email" value={formData.email} onChange={handleChange} required />
-
-        <label className="form-label" style={{ marginTop: 10 }}>Phone Number <span style={{ color: 'red' }}>*</span></label>
-        <input className="form-input" type="tel" name="phoneNumber" value={formData.phoneNumber} onChange={handleChange} required />
-
-        <label className="form-label" style={{ marginTop: 10 }}>Product Interest <span style={{ color: 'red' }}>*</span></label>
-        <div style={{ marginBottom: 10, marginTop: 10 }}>
-          <label style={{ display: "block" }}>
-            <input type="checkbox" name="audiosight" checked={formData.productInterest.audiosight} onChange={handleChange} />
-            AudioSight
-          </label>
-          <label style={{ display: "block" }}>
-            <input type="checkbox" name="sate" checked={formData.productInterest.sate} onChange={handleChange} />
-            SATE
-          </label>
-          <label style={{ display: "block" }}>
-            {/* FIX: name should be mRehab (was 'sate') */}
-            <input type="checkbox" name="mRehab" checked={formData.productInterest.mRehab} onChange={handleChange} />
-            MRehab
-          </label>
+        {/* Name */}
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">First Name <span style={{ color: 'red' }}>*</span></label>
+            <input className="form-input" type="text" name="firstName" value={formData.firstName} onChange={handleChange} required />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Last Name <span style={{ color: 'red' }}>*</span></label>
+            <input className="form-input" type="text" name="lastName" value={formData.lastName} onChange={handleChange} required />
+          </div>
         </div>
 
-        <label className="form-label" style={{ marginTop: 10 }}>Address <span style={{ color: 'red' }}>*</span></label>
-        <input className="form-input" type="text" name="address" value={formData.address} onChange={handleChange} required />
+        {/* Contact */}
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Email <span style={{ color: 'red' }}>*</span></label>
+            <input className="form-input" type="email" name="email" value={formData.email} onChange={handleChange} required />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Phone Number <span style={{ color: 'red' }}>*</span></label>
+            <input className="form-input" type="tel" name="phoneNumber" value={formData.phoneNumber} onChange={handleChange} required />
+          </div>
+        </div>
 
-        <label className="form-label" style={{ marginTop: 10 }}>City <span style={{ color: 'red' }}>*</span></label>
-        <input className="form-input" type="text" name="city" value={formData.city} onChange={handleChange} required />
+        {/* Product Interest */}
+        <fieldset className="fieldset">
+          <legend className="legend">Product Interest <span style={{ color: 'red' }}>*</span></legend>
+          <div className="checkbox-list">
+            <label className="checkbox-item">
+              <input type="checkbox" name="audiosight" checked={formData.productInterest.audiosight} onChange={handleChange} />
+              <span>AudioSight</span>
+            </label>
+            <label className="checkbox-item">
+              <input type="checkbox" name="sate" checked={formData.productInterest.sate} onChange={handleChange} />
+              <span>SATE</span>
+            </label>
+            <label className="checkbox-item">
+              <input type="checkbox" name="mRehab" checked={formData.productInterest.mRehab} onChange={handleChange} />
+              <span>MRehab</span>
+            </label>
+          </div>
+        </fieldset>
 
-        <label className="form-label" style={{ marginTop: 10 }}>State <span style={{ color: 'red' }}>*</span></label>
-        <input className="form-input" type="text" name="state" value={formData.state} onChange={handleChange} required />
+        {/* Address */}
+        <div className="form-group">
+          <label className="form-label">Address <span style={{ color: 'red' }}>*</span></label>
+          <input className="form-input" type="text" name="address" value={formData.address} onChange={handleChange} required />
+        </div>
 
-        <button
-          type="button"
-          onClick={validateAddress}
-          style={{ marginTop: 20, padding: '8px 16px', backgroundColor: '#3b82f6', color: '#ffffff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          Validate Address
-        </button>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">City <span style={{ color: 'red' }}>*</span></label>
+            <input className="form-input" type="text" name="city" value={formData.city} onChange={handleChange} required />
+          </div>
+          <div className="form-group">
+            <label className="form-label">State <span style={{ color: 'red' }}>*</span></label>
+            <input className="form-input" type="text" name="state" value={formData.state} onChange={handleChange} required />
+          </div>
+        </div>
 
-        {validationError && (
-          <p style={{ marginTop: 10, color: '#ef4444' }}>{validationError}</p>
-        )}
+        {/* Feedback */}
+        {validationError && <p className="msg msg--error">{validationError}</p>}
+        {submitError && <p className="msg msg--error">❌ {submitError}</p>}
+        {submitSuccess && <p className="msg msg--success">✅ Registration successful! Your information has been saved.</p>}
 
-        {submitError && (
-          <p style={{ marginTop: 10, color: '#ef4444', backgroundColor: '#fee2e2', padding: '10px', borderRadius: '4px' }}>
-            ❌ {submitError}
-          </p>
-        )}
-
-        {submitSuccess && (
-          <p style={{ marginTop: 10, color: '#10b981', backgroundColor: '#d1fae5', padding: '10px', borderRadius: '4px' }}>
-            ✅ Registration successful! Your information has been saved.
-          </p>
-        )}
-
-        <button className="btn primary" type="submit" style={{ marginTop: 14 }} disabled={isSubmitting}>
-          {isSubmitting ? 'Submitting...' : 'Register'}
-        </button>
+        {/* Actions — same size & font. Side-by-side desktop, stacked mobile */}
+        <div className="actions">
+          <button type="button" className="btn" onClick={validateAddress}>Validate Address</button>
+        </div>
       </form>
 
-      <SimpleMap ref={mapRef} />
-    </AuthLayout>
+      <div className="map-block">
+        <SimpleMap ref={mapRef} />
+      </div>
+      <div>
+        <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+          {isSubmitting ? 'Submitting...' : 'Register'}
+        </button>
+      </div>
+    </div>
+  </div>
+  </div>
+</AuthLayout>
+
   );
 };
 

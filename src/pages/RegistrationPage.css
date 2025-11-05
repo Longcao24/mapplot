@@ -1,50 +1,204 @@
+/* ===== Page shell (no card) ===== */
 .registration-page {
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 20px;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-.registration-page h1 {
+.registration-container {
+  width: 100%;
+  max-width: 880px;                 /* wide but easy to read */
+  margin: 32px auto 32px;
+  align-self: center;
+}
+
+/* Center the Auth header only on this page */
+.center-auth .auth-header {
+  display: flex;               /* make sure it's flex for control */
+  flex-direction: column;      /* stack logo over titles */
+  align-items: center;         /* horizontal center */
+  justify-content: center;     /* vertical center within its area */
+  text-align: center;          /* center text */
+  gap: 6px;                    /* tighten spacing */
+}
+
+
+/* Ensure all header text is centered */
+.center-auth .auth-title,
+.center-auth .auth-sub {
   text-align: center;
-  color: #333;
+  
 }
 
-.form-group {
-  margin-bottom: 15px;
+
+
+/* ===== Header / titles ===== */
+.brand-header { text-align: center; margin-bottom: 10px; }
+
+.brand-title {                      /* "Customer Atlas" — biggest */
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.15;
+  font-weight: 800;
+  color: #111827;
+  letter-spacing: .2px;
 }
 
-.form-group label {
+.brand-subtitle {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.page-title {                       /* "Register" — smaller than brand */
+  text-align: center;
+  margin: 20px 0 4px;
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.page-subtitle {
+  text-align: center;
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.helper {
+  text-align: center;
+  font-size: 12px;
+  color: #6b7280;
+  margin: 2px 0 18px;
+}
+
+/* ===== Form ===== */
+.registration-form { display: grid; gap: 14px; padding-left: 10px; padding-right: 10px; }
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+
+}
+
+/* .form-group { display: flex; flex-direction: column;} */
+
+.form-label {
+  font-size: 30px;
+  font-weight: 700;
+  color: #6b7280;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.form-input {
+  height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  outline: none;
+  font-size: 14px;
+  background: #fff;
+  transition: box-shadow .15s, border-color .15s;
+}
+.form-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+
+/* ===== Product Interest (fixed alignment) ===== */
+.fieldset {
+  border: 0;
+  padding: 0;
+  margin: 6px 0 2px;
+}
+
+.legend {                            /* slightly bigger than item labels */
   display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
+  font-size: 15px;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 6px;
+  letter-spacing: .02em;
 }
 
-.form-group input[type="text"] {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+.checkbox-list {
+  display: grid;
+  gap: 8px;
+  /* no box around it — flatter look */
 }
 
-.form-group input[type="checkbox"] {
-  margin-right: 10px;
+.checkbox-item {
+  display: inline-flex;              /* checkbox beside text (aligned) */
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;                   /* smaller than legend */
+  color: #374151;
 }
 
-button[type="submit"] {
-  display: block;
-  width: 100%;
-  padding: 10px;
-  background-color: #007bff;
+/* ===== Buttons (same size & font) ===== */
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.btn {
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #3b82f6;
   color: #fff;
-  border: none;
-  border-radius: 4px;
-  font-size: 16px;
+  font-weight: 700;                  /* same weight for both */
+  font-size: 14px;                   /* same size for both */
   cursor: pointer;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.btn:hover { border-color: #cbd5e1; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+
+.btn-primary {
+  background: #3b82f6;
+  color: #fff;
+  border-color: #3b82f6;
+}
+.btn-primary:hover { background: #2563eb; border-color: #2563eb; }
+.btn:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
+
+/* feedback */
+.msg { border-radius: 10px; padding: 10px 12px; font-size: 14px; text-align: center; }
+.msg--error  { color:#b91c1c;background:#fee2e2;border:1px solid #fecaca; }
+.msg--success{ color:#065f46;background:#d1fae5;border:1px solid #a7f3d0; }
+
+/* Map block spacing */
+.map-block { margin-top: 14px;padding-left: 10px; padding-right: 10px; align-self: center; margin-bottom: 20px;}
+
+/* ===== Responsive ===== */
+@media (max-width: 900px) {
+  .brand-title { font-size: 30px; }
+}
+@media (max-width: 680px) {
+  .registration-container { margin: 24px auto 24px; align-self: center;}
+  .form-row { grid-template-columns: 1fr; }   /* stack fields */
+  .actions { flex-direction: column; }        /* buttons one after the other */
+  .btn, .btn-primary { width: 100%; }         /* equal width on mobile */
+  .brand-title { font-size: 26px; }
+  .page-title  { font-size: 22px; }
 }
 
-button[type="submit"]:hover {
-  background-color: #0056b3;
+
+/* Center the text in the Auth header, allow logo to stay left */
+.center-auth .auth-header {
+  display: flex;
+  align-items: center;      /* logo + text vertically aligned */
+  justify-content: flex-start;  /* keep logo left */
+  width: 100%;
 }
+
+/* The div that wraps Customer Atlas + subtitles */
+.center-auth .auth-header > div {
+  flex: 1;                  /* take remaining space */
+  text-align: center;       /* center the text block */
+}
+
+
