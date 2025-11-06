@@ -1,6 +1,60 @@
 import zipcodes from 'zipcodes';
 import { geocodeCache } from '../constants/maps';
 
+// Extract ZIP + country from MapTiler feature
+const extractZipFromMapTiler = (feature) => {
+  if (!feature) return {};
+  // MapTiler/Mapbox-style "context" array can contain place/country/postcode
+  const ctx = feature.context || [];
+  const postcodeCtx = ctx.find(c => (c.id || '').startsWith('postcode')) || {};
+  const countryCtx = ctx.find(c => (c.id || '').startsWith('country')) || {};
+  // Some features carry postcode directly
+  const directZip = feature.postcode || feature.properties?.postcode;
+  return {
+    zip: directZip || postcodeCtx.text,
+    country: countryCtx?.short_code?.toUpperCase() || feature.properties?.country_code?.toUpperCase() || 'US',
+  };
+};
+
+// Extract ZIP + country from Nominatim result
+// Currently the zipcode is only US-based
+const extractZipFromNominatim = (result) => {
+  const addr = result?.address || {};
+  const zip = addr.postcode || addr['ISO3166-2-lvl4']; // best-effort
+  // Nominatim uses ISO 3166-1 alpha2 codes for country_code
+  const country = (addr.country_code || 'us').toUpperCase();
+  return { zip, country };
+};
+
+// Pull a ZIP from any of: explicit arg, validated feature, or raw text fallback
+const resolveZip = ({ zipFromArg, maptilerHit, nominatimHit, rawText }) => {
+  // 1) explicit arg wins
+  if (zipFromArg) {
+    const z = zipFromArg.toString().match(/\b\d{5}\b/);
+    if (z) return { zip: z[0], country: 'US' };
+  }
+
+  // 2) from MapTiler
+  if (maptilerHit?.feature) {
+    const { zip, country } = extractZipFromMapTiler(maptilerHit.feature);
+    if (zip) return { zip: (zip.match(/\b\d{5}\b/) || [zip])[0], country: country || 'US' };
+  }
+
+  // 3) from Nominatim
+  if (nominatimHit?.raw) {
+    const { zip, country } = extractZipFromNominatim(nominatimHit.raw);
+    if (zip) return { zip: (zip.match(/\b\d{5}\b/) || [zip])[0], country: country || 'US' };
+  }
+
+  // 4) regex from raw text as a last resort
+  if (rawText) {
+    const z = rawText.match(/\b\d{5}\b/);
+    if (z) return { zip: z[0], country: 'US' };
+  }
+
+  return {};
+};
+
 /**
  * Geocode an address using Nominatim (OpenStreetMap) API
  * Free service with rate limiting (1 request/second recommended)
@@ -115,100 +169,118 @@ export const geocodeWithMapTiler = async (address, apiKey = 'b9c8lYjfkzHCjixZoLq
  * Note: Not currently used in App.js, but kept for future use
  */
 export const geocodeAddress = async (address, city = '', state = '', zipCode = '') => {
-  // Create a full address string for better geocoding results
-  const fullAddress = [address, city, state, zipCode]
-    .filter(Boolean)
-    .join(', ')
-    .trim();
-  
+  const fullAddress = [address, city, state, zipCode].filter(Boolean).join(', ').trim();
   if (!fullAddress && !zipCode) return null;
-  
-  // Check cache first
+
+  // Cache by ZIP if present, else full text
   const cacheKey = (zipCode || fullAddress).toLowerCase();
   if (geocodeCache.has(cacheKey)) {
-    console.log('✅ Using cached geocode for:', zipCode || fullAddress);
     return geocodeCache.get(cacheKey);
   }
-  
-  let result = null;
-  
-  // Strategy 1: If we have a zipcode, try Zippopotam API (most accurate for US zipcodes)
-  if (zipCode) {
-    result = await geocodeZipcode(zipCode);
-    if (result) {
-      console.log('✅ Geocoded with Zippopotam API:', zipCode, '→', result.displayName);
+
+  let validatedHit = null;
+  let provider = null;
+
+  // 1) Validate with MapTiler
+  let maptilerHit = null;
+  if (fullAddress) {
+    maptilerHit = await geocodeWithMapTiler(fullAddress);
+    if (maptilerHit) {
+      validatedHit = maptilerHit;
+      provider = 'maptiler';
+    }
+  }
+
+  // 2) If not validated yet, try Nominatim (respect rate limit)
+  let nominatimHit = null;
+  if (!validatedHit && fullAddress) {
+    await new Promise(r => setTimeout(r, 500));
+    nominatimHit = await geocodeWithNominatim(fullAddress);
+    if (nominatimHit) {
+      validatedHit = nominatimHit;
+      provider = 'nominatim';
+    }
+  }
+
+  // 3) Extract ZIP (arg → provider result → regex)
+  const { zip, country } = resolveZip({
+    zipFromArg: zipCode,
+    maptilerHit,
+    nominatimHit,
+    rawText: fullAddress
+  });
+
+  // If we couldn't validate the address at all, we still allow ZIP plotting if provided
+  const validated = !!validatedHit || !!zip;
+
+  // 4) Plot by ZIP centroid if we have a zip
+  let plotted = null;
+  if (zip) {
+    // 4a) Zippopotam
+    plotted = await geocodeZipcode(zip, (country || 'US').toLowerCase());
+    if (plotted) {
+      const result = { validated, provider, zip, country: plotted.country || country || 'US', plotted };
       geocodeCache.set(cacheKey, result);
       return result;
     }
-  }
-  
-  // Strategy 2: Try local zipcodes library (fast, offline, but limited coverage)
-  if (zipCode) {
+
+    // 4b) Local zipcodes library (US only)
     try {
-      const zipData = zipcodes.lookup(zipCode);
-      if (zipData && zipData.latitude && zipData.longitude) {
-        result = {
-          latitude: zipData.latitude,
-          longitude: zipData.longitude,
-          displayName: `${city || zipData.city}, ${state || zipData.state} ${zipCode}`
+      const z = zipcodes.lookup(zip);
+      if (z?.latitude && z?.longitude) {
+        plotted = {
+          latitude: z.latitude,
+          longitude: z.longitude,
+          displayName: `${z.city}, ${z.state} ${zip}`,
+          city: z.city,
+          state: z.state,
+          zip,
+          country: 'US'
         };
-        console.log('✅ Geocoded with local zipcodes library:', zipCode);
+        const result = { validated, provider, zip, country: 'US', plotted };
         geocodeCache.set(cacheKey, result);
         return result;
       }
     } catch (e) {
-      console.warn('⚠️ Local zipcode lookup failed:', e);
+      console.warn('Local zipcode lookup failed:', e);
     }
   }
-  
-  // Strategy 3: Try city/state lookup with local library
-  if (!result && city && state) {
+
+  // 5) If we still don't have ZIP, fall back progressively to city/state, then address point
+  if (!plotted && city && state) {
     try {
       const cityStateData = zipcodes.lookupByName(city, state);
-      if (cityStateData && cityStateData.length > 0) {
-        result = {
+      if (cityStateData?.length > 0) {
+        plotted = {
           latitude: cityStateData[0].latitude,
           longitude: cityStateData[0].longitude,
           displayName: `${city}, ${state}`
         };
-        console.log('✅ Geocoded with city/state lookup:', `${city}, ${state}`);
+        const result = { validated, provider: provider || 'fallback', zip: zip || null, country: 'US', plotted };
         geocodeCache.set(cacheKey, result);
         return result;
       }
     } catch (e) {
-      console.warn('⚠️ City/state lookup failed:', e);
+      console.warn('City/state lookup failed:', e);
     }
   }
-  
-  // Strategy 4: Try MapTiler API (reliable, requires API key)
-  if (!result && fullAddress) {
-    await new Promise(resolve => setTimeout(resolve, 100)); // Small delay to avoid rate limiting
-    result = await geocodeWithMapTiler(fullAddress);
-    if (result) {
-      console.log('✅ Geocoded with MapTiler:', fullAddress);
+
+  // 6) Absolute last resort: plot the validated address point (not preferred, but avoids total failure)
+  if (!plotted && validatedHit) {
+    const lat = validatedHit.latitude;
+    const lng = validatedHit.longitude;
+    if (typeof lat === 'number' && typeof lng === 'number') {
+      plotted = {
+        latitude: lat,
+        longitude: lng,
+        displayName: validatedHit.displayName
+      };
+      const result = { validated, provider, zip: zip || null, country: country || 'US', plotted };
       geocodeCache.set(cacheKey, result);
       return result;
     }
   }
-  
-  // Strategy 5: Fallback to Nominatim (free but slower)
-  if (!result && fullAddress) {
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Respect Nominatim rate limit
-    result = await geocodeWithNominatim(fullAddress);
-    if (result) {
-      console.log('✅ Geocoded with Nominatim:', fullAddress);
-      geocodeCache.set(cacheKey, result);
-      return result;
-    }
-  }
-  
-  // If still no result, log warning
-  if (!result) {
-    console.warn('❌ Could not geocode:', { address, city, state, zipCode });
-  }
-  
-  return result;
+
+  console.warn('❌ Could not geocode (even by fallback):', { address, city, state, zipCode });
+  return { validated: false, provider: null, zip: null, country: null, plotted: null };
 };
-
-
-

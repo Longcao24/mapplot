@@ -1,16 +1,17 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthLayout from "../components/AuthLayout";
 import SimpleMap from "../components/SimpleMap";
 import { supabase } from "../lib/supabase";
 import { useCustomerData } from "../hooks/useCustomerData";
-import { apiGetCustomers, apiGetProducts } from '../lib/api';
-import maplibregl from 'maplibre-gl';
+import { geocodeZipcode } from "../utils/geocoding"; // keep this path as your helper
 import 'maplibre-gl/dist/maplibre-gl.css';
+import './RegistrationPage.css';
+
 
 const RegistrationPage = () => {
   const navigate = useNavigate();
-  const { sites, loading, error } = useCustomerData();
+  const { sites } = useCustomerData();
   const [nearbyMarkersCount, setNearbyMarkersCount] = useState(0);
 
   const [formData, setFormData] = useState({
@@ -21,10 +22,12 @@ const RegistrationPage = () => {
     productInterest: {
       audiosight: false,
       sate: false,
+      mRehab: false, // FIX: was missing; checkbox reads this
     },
     address: '',
     city: '',
     state: '',
+    postalCode: '', // store the validated ZIP here
   });
 
   const [validatedAddress, setValidatedAddress] = useState('');
@@ -33,11 +36,10 @@ const RegistrationPage = () => {
   const [submitError, setSubmitError] = useState(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  const mapRef = useRef(null); // Reference to the SimpleMap
+  const mapRef = useRef(null);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-
     if (type === 'checkbox') {
       setFormData((prev) => ({
         ...prev,
@@ -47,150 +49,143 @@ const RegistrationPage = () => {
         },
       }));
     } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const toRadians = (degrees) => (degrees * Math.PI) / 180;
-  const R = 6371; // Radius of the Earth in kilometers
-  const dLat = toRadians(lat2 - lat1);
-  const dLon = toRadians(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c; // Distance in kilometers
-};
-
-  const validateAddress = async () => {
-  const apiKey = process.env.REACT_APP_GOOGLE_API_KEY;
-  const url = `https://addressvalidation.googleapis.com/v1:validateAddress?key=${apiKey}`;
-
-  const combinedAddress = `${formData.address}, ${formData.city}, ${formData.state}`;
-
-  const requestBody = {
-    address: {
-      addressLines: [combinedAddress],
-    },
+    const toRadians = (deg) => (deg * Math.PI) / 180;
+    const R = 6371;
+    const dLat = toRadians(lat2 - lat1);
+    const dLon = toRadians(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
   };
 
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
+  const validateAddress = async () => {
+    const apiKey = process.env.REACT_APP_GOOGLE_API_KEY;
+    const url = `https://addressvalidation.googleapis.com/v1:validateAddress?key=${apiKey}`;
 
-    const data = await response.json();
+    const combinedAddress = `${formData.address}, ${formData.city}, ${formData.state}`;
+    const requestBody = { address: { addressLines: [combinedAddress] } };
 
-    if (response.ok && data.result && data.result.address) {
-      console.log(data.result);
-      if (data.result.address.missingComponentTypes && data.result.address.missingComponentTypes.length > 0) {
-        setValidationError('Address is missing some components.');
-        setValidatedAddress('');
-        return;
-      }
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
 
-      const suggestedAddress = data.result.address.formattedAddress;
-      const latitude = parseFloat(data.result.geocode.location.latitude);
-      const longitude = parseFloat(data.result.geocode.location.longitude);
+      const data = await response.json();
 
-      setValidatedAddress(suggestedAddress);
-      setValidationError(null);
+      if (response.ok && data.result?.address) {
+        if (data.result.address.missingComponentTypes?.length) {
+          setValidationError('Address is missing some components.');
+          setValidatedAddress('');
+          return;
+        }
 
-      const userConfirmed = window.confirm(`Is this the address you were looking for?\n\n${suggestedAddress}`);
-      if (userConfirmed) {
-        const [address, city, state] = suggestedAddress.split(',').map(part => part.trim());
+        const suggestedAddress = data.result.address.formattedAddress;
+        const postal = data.result.address.postalAddress?.postalCode || '';
+        const country = (data.result.address.postalAddress?.regionCode || 'US').toUpperCase();
+
+        setValidatedAddress(suggestedAddress);
+        setValidationError(null);
+
+        const userConfirmed = window.confirm(`Is this the address you were looking for?\n\n${suggestedAddress}`);
+        if (!userConfirmed) return;
+
+        const [addr, city, state] = suggestedAddress.split(',').map(part => part.trim());
         setFormData((prev) => ({
           ...prev,
-          address: address || prev.address,
+          address: addr || prev.address,
           city: city || prev.city,
           state: state || prev.state,
+          postalCode: postal || prev.postalCode,
         }));
 
-        if (mapRef.current) {
-          
-          mapRef.current.zoomToLocation(latitude, longitude);
+        // ZIP-only plotting
+        if (postal) {
+          const zipHit = await geocodeZipcode(postal, country);
+          if (zipHit && mapRef.current) {
+            const { latitude: zipLat, longitude: zipLng } = zipHit;
+            mapRef.current.zoomToLocation(zipLat, zipLng);
 
-          // Calculate nearby markers interested in the same product
-          const radius = 200; // Radius in kilometers
-          const sameProductMarkers = sites.filter((site) => {
-            console.log('Sites data:', site.latitude, latitude);
-            const distance = calculateDistance(latitude, longitude, site.latitude, site.longitude);
-            // const isInterested = Object.keys(formData.productInterest).some(
-            //   (product) => formData.productInterest[product] && site.products_interested?.includes(product)
-            // );
-            return distance <= radius;
-          });
-
-          setNearbyMarkersCount(sameProductMarkers.length);
-          console.log(`Found ${sameProductMarkers.length} nearby markers interested in the same product.`);
+            // Nearby markers relative to ZIP centroid
+            const radius = 200; // km
+            const sameProductMarkers = sites.filter((site) => {
+              const distance = calculateDistance(zipLat, zipLng, site.latitude, site.longitude);
+              return distance <= radius;
+            });
+            setNearbyMarkersCount(sameProductMarkers.length);
+          }
+        } else {
+          setValidationError('Validated address has no postal code; cannot plot by ZIP.');
         }
+      } else {
+        setValidatedAddress('');
+        setValidationError('Unable to validate the address. Please check and try again.');
       }
-    } else {
+    } catch (error) {
       setValidatedAddress('');
-      setValidationError('Unable to validate the address. Please check and try again.');
+      setValidationError('An error occurred while validating the address.');
+      console.error('Address validation error:', error);
     }
-  } catch (error) {
-    setValidatedAddress('');
-    setValidationError('An error occurred while validating the address.');
-    console.error('Address validation error:', error);
-  }
-};
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Form Data:', formData);
-    
     setIsSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(false);
 
     try {
-      // Geocode the address to get latitude and longitude
+      // ZIP-only centroid for lat/lng
       let latitude = null;
       let longitude = null;
+      let postal = formData.postalCode;
 
-      try {
-        const apiKey = process.env.REACT_APP_GOOGLE_API_KEY;
-        const url = `https://addressvalidation.googleapis.com/v1:validateAddress?key=${apiKey}`;
-        const combinedAddress = `${formData.address}, ${formData.city}, ${formData.state}`;
+      if (!postal) {
+        // Try extracting ZIP quickly if user didn't hit "Validate"
+        try {
+          const apiKey = process.env.REACT_APP_GOOGLE_API_KEY;
+          const url = `https://addressvalidation.googleapis.com/v1:validateAddress?key=${apiKey}`;
+          const combinedAddress = `${formData.address}, ${formData.city}, ${formData.state}`;
+          const resp = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address: { addressLines: [combinedAddress] } }),
+          });
+          const d = await resp.json();
+          if (resp.ok && d.result?.address?.postalAddress?.postalCode) {
+            postal = d.result.address.postalAddress.postalCode;
+          }
+        } catch (_) {}
+      }
 
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            address: {
-              addressLines: [combinedAddress],
-            },
-          }),
-        });
-
-        const data = await response.json();
-        if (response.ok && data.result && data.result.geocode) {
-          latitude = parseFloat(data.result.geocode.location.latitude);
-          longitude = parseFloat(data.result.geocode.location.longitude);
+      if (postal) {
+        try {
+          const hit = await geocodeZipcode(postal, 'US');
+          if (hit) {
+            latitude = hit.latitude;
+            longitude = hit.longitude;
+          }
+        } catch (zipErr) {
+          console.warn('ZIP geocoding failed:', zipErr);
         }
-      } catch (geocodeError) {
-        console.warn('Geocoding failed:', geocodeError);
-        // Continue with submission even if geocoding fails
       }
 
       // Build product interest array
       const productsInterested = [];
       if (formData.productInterest.audiosight) productsInterested.push('AudioSight');
       if (formData.productInterest.sate) productsInterested.push('SATE');
+      if (formData.productInterest.mRehab) productsInterested.push('MRehab');
 
-      // Prepare customer data for database
+      // Prepare customer row (save ZIP + ZIP centroid if available)
       const customerData = {
         customer_type: 'customer',
         name: `${formData.firstName} ${formData.lastName}`.trim(),
@@ -199,246 +194,145 @@ const RegistrationPage = () => {
         address: formData.address,
         city: formData.city,
         state: formData.state,
-        postal_code: null,
+        postal_code: postal || null, // FIX: remove duplicate & typo 'post'
         country: 'USA',
-        latitude: latitude,
-        longitude: longitude,
-        products_interested: productsInterested.length > 0 ? productsInterested : null,
+        latitude: latitude,          // ZIP centroid
+        longitude: longitude,        // ZIP centroid
+        products_interested: productsInterested.length ? productsInterested : null,
         status: 'lead',
         source_system: 'registration_form',
         registered_at: new Date().toISOString().split('T')[0],
-        notes: `Registered via web form. Products interested: ${productsInterested.join(', ') || 'None selected'}`
+        notes: `Registered via web form. Products interested: ${productsInterested.join(', ') || 'None selected'}`,
       };
 
-      console.log('Submitting customer data:', customerData);
-
-      // Insert into Supabase
       const { data: insertedData, error } = await supabase
         .from('customers')
         .insert([customerData])
         .select()
         .single();
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw new Error(error.message || 'Failed to save registration');
-      }
+      if (error) throw new Error(error.message || 'Failed to save registration');
 
-      console.log('Registration successful:', insertedData);
-      
       setSubmitSuccess(true);
-      
-      // Navigate to map with location data to zoom to the new customer
+
+      // Navigate to map; if we have coords, zoom to ZIP centroid
       if (latitude && longitude) {
         setTimeout(() => {
           navigate('/', {
             state: {
-              zoomToLocation: {
-                latitude,
-                longitude,
-                name: insertedData.name
-              }
+              zoomToLocation: { latitude, longitude, name: insertedData.name }
             }
           });
-        }, 1500); // Show success message briefly before navigating
+        }, 1500);
       } else {
-        // If no coordinates, just navigate to map after a longer delay
-        setTimeout(() => {
-          navigate('/');
-        }, 3000);
+        setTimeout(() => { navigate('/'); }, 3000);
       }
-
-    } catch (error) {
-      console.error('Registration error:', error);
-      setSubmitError(error.message || 'Failed to submit registration. Please try again.');
+    } catch (err) {
+      console.error('Registration error:', err);
+      setSubmitError(err.message || 'Failed to submit registration. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <AuthLayout
-      title="Register"
-      subtitle="Create an account to access the platform."
-    >
-      <form onSubmit={handleSubmit}>
-        <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>
+    // inside return (
+<AuthLayout title="Register" subtitle="Create an account to access the platform.">
+  <div className="center-auth">
+  <div className="registration-page">
+    <div className="registration-container">
+      
+
+      <form className="registration-form" onSubmit={handleSubmit}>
+        <p className="helper">
           Fields marked with <span style={{ color: 'red' }}>*</span> are required.
         </p>
 
-        <label className="form-label">
-          First Name <span style={{ color: 'red' }}>*</span>
-        </label>
-        <input
-          className="form-input"
-          type="text"
-          name="firstName"
-          value={formData.firstName}
-          onChange={handleChange}
-          required
-        />
-
-        <label className="form-label" style={{ marginTop: 10 }}>
-          Last Name <span style={{ color: 'red' }}>*</span>
-        </label>
-        <input
-          className="form-input"
-          type="text"
-          name="lastName"
-          value={formData.lastName}
-          onChange={handleChange}
-          required
-        />
-
-        <label className="form-label" style={{ marginTop: 10 }}>
-          Email <span style={{ color: 'red' }}>*</span>
-        </label>
-        <input
-          className="form-input"
-          type="email"
-          name="email"
-          value={formData.email}
-          onChange={handleChange}
-          required
-        />
-
-        <label className="form-label" style={{ marginTop: 10 }}>
-          Phone Number <span style={{ color: 'red' }}>*</span>
-        </label>
-        <input
-          className="form-input"
-          type="tel"
-          name="phoneNumber"
-          value={formData.phoneNumber}
-          onChange={handleChange}
-          required
-        />
-
-        <label className="form-label" style={{ marginTop: 10 }}>
-          Product Interest <span style={{ color: 'red' }}>*</span>
-        </label>
-        <div style={{ marginBottom: 10, marginTop: 10 }}>
-          <label style={{ display: "block" }}>
-            <input
-              type="checkbox"
-              name="audiosight"
-              checked={formData.productInterest.audiosight}
-              onChange={handleChange}
-            />
-            AudioSight
-          </label>
-          <label style={{ display: "block" }}>
-            <input
-              type="checkbox"
-              name="sate"
-              checked={formData.productInterest.sate}
-              onChange={handleChange}
-            />
-            SATE
-          </label>
+        {/* Name */}
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">First Name <span style={{ color: 'red' }}>*</span></label>
+            <input className="form-input" type="text" name="firstName" value={formData.firstName} onChange={handleChange} required />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Last Name <span style={{ color: 'red' }}>*</span></label>
+            <input className="form-input" type="text" name="lastName" value={formData.lastName} onChange={handleChange} required />
+          </div>
         </div>
 
-        <label className="form-label" style={{ marginTop: 10 }}>
-          Address <span style={{ color: 'red' }}>*</span>
-        </label>
-        <input
-          className="form-input"
-          type="text"
-          name="address"
-          value={formData.address}
-          onChange={handleChange}
-          required
-        />
-        <label className="form-label" style={{ marginTop: 10 }}>
-        City <span style={{ color: 'red' }}>*</span>
-        </label>
-        <input
-          className="form-input"
-          type="text"
-          name="city"
-          value={formData.city}
-          onChange={handleChange}
-          required
-        />
+        {/* Contact */}
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Email <span style={{ color: 'red' }}>*</span></label>
+            <input className="form-input" type="email" name="email" value={formData.email} onChange={handleChange} required />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Phone Number <span style={{ color: 'red' }}>*</span></label>
+            <input className="form-input" type="tel" name="phoneNumber" value={formData.phoneNumber} onChange={handleChange} required />
+          </div>
+        </div>
 
-        <label className="form-label" style={{ marginTop: 10 }}>
-          State <span style={{ color: 'red' }}>*</span>
-        </label>
-        <input
-          className="form-input"
-          type="text"
-          name="state"
-          value={formData.state}
-          onChange={handleChange}
-          required
-        />
-        <button
-          type="button"
-          onClick={validateAddress}
-          style={{
-            marginTop: 20,
-            padding: '8px 16px',
-            backgroundColor: '#3b82f6',
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
-        >
-          Validate Address
-        </button>
+        {/* Product Interest */}
+        <fieldset className="fieldset">
+          <legend className="legend">Product Interest <span style={{ color: 'red' }}>*</span></legend>
+          <div className="checkbox-list">
+            <label className="checkbox-item">
+              <input type="checkbox" name="audiosight" checked={formData.productInterest.audiosight} onChange={handleChange} />
+              <span>AudioSight</span>
+            </label>
+            <label className="checkbox-item">
+              <input type="checkbox" name="sate" checked={formData.productInterest.sate} onChange={handleChange} />
+              <span>SATE</span>
+            </label>
+            <label className="checkbox-item">
+              <input type="checkbox" name="mRehab" checked={formData.productInterest.mRehab} onChange={handleChange} />
+              <span>MRehab</span>
+            </label>
+          </div>
+        </fieldset>
 
-        <br />
+        {/* Address */}
+        <div className="form-group">
+          <label className="form-label">Address <span style={{ color: 'red' }}>*</span></label>
+          <input className="form-input" type="text" name="address" value={formData.address} onChange={handleChange} required />
+        </div>
 
-        {/* {validatedAddress && (
-          <p style={{ marginTop: 10, color: '#10b981' }}>
-            Suggested Address: {validatedAddress}
-          </p>
-        )} */}
-        {validationError && (
-          <p style={{ marginTop: 10, color: '#ef4444' }}>
-            {validationError}
-          </p>
-        )}
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">City <span style={{ color: 'red' }}>*</span></label>
+            <input className="form-input" type="text" name="city" value={formData.city} onChange={handleChange} required />
+          </div>
+          <div className="form-group">
+            <label className="form-label">State <span style={{ color: 'red' }}>*</span></label>
+            <input className="form-input" type="text" name="state" value={formData.state} onChange={handleChange} required />
+          </div>
+        </div>
 
-        {submitError && (
-          <p style={{ marginTop: 10, color: '#ef4444', backgroundColor: '#fee2e2', padding: '10px', borderRadius: '4px' }}>
-            ❌ {submitError}
-          </p>
-        )}
+        {/* Feedback */}
+        {validationError && <p className="msg msg--error">{validationError}</p>}
+        {submitError && <p className="msg msg--error">❌ {submitError}</p>}
+        {submitSuccess && <p className="msg msg--success">✅ Registration successful! Your information has been saved.</p>}
 
-        {submitSuccess && (
-          <p style={{ marginTop: 10, color: '#10b981', backgroundColor: '#d1fae5', padding: '10px', borderRadius: '4px' }}>
-            ✅ Registration successful! Your information has been saved.
-          </p>
-        )}
+        {/* Actions — same size & font. Side-by-side desktop, stacked mobile */}
+        <div className="actions">
+          <button type="button" className="btn" onClick={validateAddress}>Validate Address</button>
+        </div>
+      </form>
 
-        <button
-          className="btn primary"
-          type="submit"
-          style={{ marginTop: 14 }}
-          disabled={isSubmitting}
-        >
+      <div className="map-block">
+        <SimpleMap ref={mapRef} />
+      </div>
+      <div>
+        <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
           {isSubmitting ? 'Submitting...' : 'Register'}
         </button>
-      </form>
-      {/* Include the Map */}
-<<<<<<< HEAD
-      <MapComp ref={mapRef} sites={sites} />
+      </div>
+    </div>
+  </div>
+  </div>
+</AuthLayout>
 
-        {nearbyMarkersCount > 0 && (
-  <p style={{ marginTop: 10, color: '#3b82f6' }}>
-    There are {nearbyMarkersCount} people near you that are interested in the same product!
-  </p>
-)}
-
-=======
-      <SimpleMap ref={mapRef} />
->>>>>>> 0c83471 (Update CRM UI + Mail service + Google Calander + Tasks manegement + Dashboard + Radius filter)
-    </AuthLayout>
   );
 };
 
 export default RegistrationPage;
-
-

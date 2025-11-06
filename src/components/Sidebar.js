@@ -101,6 +101,20 @@ export default function Sidebar({ expanded, setExpanded }) {
           {expanded && <span className="sidebar-label">Calendar</span>}
         </button>
 
+        <button 
+          onClick={() => navigate('/registration-mail')}
+          className={`sidebar-icon-btn ${isActive('/registration-mail') ? 'active' : ''}`}
+          title="Send Registration Emails"
+        >
+          {/* envelope icon */}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+          {expanded && <span className="sidebar-label">Registration Mail</span>}
+        </button>
+
+
         {/* <button 
           className="sidebar-icon-btn"
           title="Settings"

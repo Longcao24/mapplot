@@ -7,6 +7,7 @@ import CRMDashboard from './pages/CRMDashboard';
 import AnalyticsPage from './pages/AnalyticsPage';
 import CustomerManagementPage from './pages/CustomerManagementPage';
 import RegistrationPage from './pages/RegistrationPage';
+import SendRegistrationMail from './pages/SendRegistrationMail';
 import MapViewPage from './pages/MapViewPage';
 import TasksPage from './pages/TasksPage';
 import CalendarPage from './pages/CalendarPage';
@@ -167,6 +168,17 @@ function App() {
             <ProtectedRoute>
               <AppLayout>
                 <CalendarPage viewMode={viewMode} setViewMode={setViewMode} />
+              </AppLayout>
+            </ProtectedRoute>
+          } 
+        />
+
+        <Route 
+          path="/registration-mail" 
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <SendRegistrationMail viewMode={viewMode} setViewMode={setViewMode} />
               </AppLayout>
             </ProtectedRoute>
           } 
