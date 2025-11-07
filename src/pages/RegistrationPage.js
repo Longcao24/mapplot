@@ -423,18 +423,7 @@ const RegistrationPage = () => {
         </button>
       </form>
       {/* Include the Map */}
-<<<<<<< HEAD
-      <MapComp ref={mapRef} sites={sites} />
-
-        {nearbyMarkersCount > 0 && (
-  <p style={{ marginTop: 10, color: '#3b82f6' }}>
-    There are {nearbyMarkersCount} people near you that are interested in the same product!
-  </p>
-)}
-
-=======
       <SimpleMap ref={mapRef} />
->>>>>>> 0c83471 (Update CRM UI + Mail service + Google Calander + Tasks manegement + Dashboard + Radius filter)
     </AuthLayout>
   );
 };
