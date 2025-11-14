@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthLayout from "../components/AuthLayout";
 import SimpleMap from "../components/SimpleMap";
@@ -7,12 +7,14 @@ import { useCustomerData } from "../hooks/useCustomerData";
 import { geocodeZipcode } from "../utils/geocoding"; // keep this path as your helper
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './RegistrationPage.css';
+import { getFeatureToggle, setFeatureToggle } from '../lib/featureToggles';
 
 
 const RegistrationPage = () => {
   const navigate = useNavigate();
   const { sites } = useCustomerData();
   const [nearbyMarkersCount, setNearbyMarkersCount] = useState(0);
+  const [registrationEnabled, setRegistrationEnabled] = useState(false);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -37,6 +39,30 @@ const RegistrationPage = () => {
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
   const mapRef = useRef(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const featureName = 'my_endpoint'; // change if your feature name differs
+
+    const fetchFlag = async () => {
+      try {
+        const enabled = await getFeatureToggle(featureName);
+        console.log(`Registration feature "${featureName}" is enabled:`, enabled);
+        if (mounted) setRegistrationEnabled(enabled);
+        if (!enabled) {
+          navigate('/', { replace: true });
+        }
+      } catch (err) {
+        console.warn('Could not read registration feature toggle, defaulting to closed', err);
+        if (mounted) setRegistrationEnabled(false);
+        navigate('/', { replace: true });
+      }
+    };
+
+    fetchFlag();
+    const iv = setInterval(fetchFlag, 30_000);
+    return () => { mounted = false; clearInterval(iv); };
+  }, [navigate]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -309,6 +335,25 @@ const RegistrationPage = () => {
   return (
     // inside return (
 <AuthLayout title="Register" subtitle="Create an account to access the platform.">
+  {/* Back button top-left */}
+    <button
+      type="button"
+      aria-label="Go back"
+      onClick={() => navigate('/')}
+      style={{
+        position: 'absolute',
+        top: 12,
+        left: 12,
+        zIndex: 50,
+        background: 'transparent',
+        border: 'none',
+        cursor: 'pointer',
+        fontSize: 18,
+        padding: 8,
+      }}
+    >
+      ←
+    </button>
   <div className="center-auth">
   <div className="registration-page">
     <div className="registration-container">

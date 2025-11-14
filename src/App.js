@@ -14,6 +14,7 @@ import CalendarPage from './pages/CalendarPage';
 import Login from './pages/Login';
 import AcceptInvite from './pages/AcceptInvite';
 import { isAuthenticated } from './lib/supabase';
+import FeatureGate from './pages/FeatureGate';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -98,9 +99,13 @@ function App() {
           element={<Login onAuthed={handleAuthed} />} 
         />
         
-        <Route 
-          path="/register" 
-          element={<RegistrationPage />} 
+        <Route
+          path="/register"
+          element={
+            <FeatureGate featureName="my_endpoint">
+              <RegistrationPage />
+            </FeatureGate>
+          }
         />
 
         <Route 

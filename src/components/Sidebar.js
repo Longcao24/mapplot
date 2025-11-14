@@ -3,13 +3,33 @@
  * Common left sidebar navigation for all pages
  */
 
-import React from 'react';
+import React, {useState, useEffect} from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './Sidebar.css';
+import { getFeatureToggle, setFeatureToggle } from '../lib/featureToggles';
 
 export default function Sidebar({ expanded, setExpanded }) {
   const navigate = useNavigate();
   const location = useLocation();
+
+  const [toggleOn, setToggleOn] = useState(false);
+
+  const handleToggle = async () => {
+    const newToggleState = !toggleOn;
+    setToggleOn(newToggleState);
+    try {
+      let x;
+      if (newToggleState) {
+        x = "true";
+      } else {
+        x = "";
+      }
+      await setFeatureToggle('my_endpoint', x);
+      console.log(`Feature toggle "my_endpoint" set to: ${newToggleState}`);
+    } catch (error) {
+      console.error('Error setting feature toggle:', error);
+    }
+  };
 
   const isActive = (path) => {
     if (path === '/') {
@@ -17,6 +37,18 @@ export default function Sidebar({ expanded, setExpanded }) {
     }
     return location.pathname.startsWith(path);
   };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const isEnabled = await getFeatureToggle('my_endpoint');
+        console.log('Feature toggle "my_endpoint" is enabled:', isEnabled);
+        setToggleOn(Boolean(isEnabled));
+      } catch (error) {
+        console.error('Error fetching feature toggle:', error);
+      }
+    })();
+  }, [toggleOn]);
 
   return (
     <aside className={`crm-sidebar ${expanded ? 'expanded' : ''}`}>
@@ -113,6 +145,27 @@ export default function Sidebar({ expanded, setExpanded }) {
           </svg>
           {expanded && <span className="sidebar-label">Registration Mail</span>}
         </button>
+
+        <button
+         onClick={handleToggle}
+         className={`sidebar-icon-btn ${toggleOn ? 'active' : ''}`}
+         title={toggleOn ? 'Toggle: On' : 'Toggle: Off'}
+       >
+         {/* power/toggle icon */}
+         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+           <path d="M12 2v6" />
+           <path d="M5.07 6.93a10 10 0 1 0 13.86 0" />
+         </svg>
+         {expanded && <span className="sidebar-label">{toggleOn ? 'On' : 'Off'}</span>}
+       </button>
+
+       <button
+         onClick={() => navigate('/register')}
+         className={`sidebar-icon-btn`}
+       >
+         R
+       </button>
+       
 
 
         {/* <button 
