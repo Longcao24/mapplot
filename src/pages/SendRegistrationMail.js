@@ -74,7 +74,7 @@ export default function SendRegistrationMail() {
     setRows(prev => prev.map(r => (r.selected ? { ...r, status: "Sending…" } : r)));
 
     try {
-      const res = await fetch("/functions/v1/invite-batch", {
+      const res = await fetch("http://localhost:3001/invite-batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ emails, expiresInDays })
