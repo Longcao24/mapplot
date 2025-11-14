@@ -68,13 +68,25 @@ const RegistrationPage = () => {
 
   const validateAddress = async () => {
     const apiKey = process.env.REACT_APP_GOOGLE_API_KEY;
-    const url = `https://addressvalidation.googleapis.com/v1:validateAddress?key=${apiKey}`;
+    const validationUrl = `https://addressvalidation.googleapis.com/v1:validateAddress?key=${apiKey}`;
 
-    const combinedAddress = `${formData.address}, ${formData.city}, ${formData.state}`;
+    // Dynamically build address
+    const addressParts = [];
+    if (formData.address?.trim()) addressParts.push(formData.address.trim());
+    if (formData.city?.trim()) addressParts.push(formData.city.trim());
+    if (formData.state?.trim()) addressParts.push(formData.state.trim());
+
+    if (addressParts.length < 2) {
+      setValidationError('Please enter at least a city and state.');
+      return;
+    }
+
+    const combinedAddress = addressParts.join(', ');
     const requestBody = { address: { addressLines: [combinedAddress] } };
 
     try {
-      const response = await fetch(url, {
+      // 👉 First try full Google Address Validation API
+      const response = await fetch(validationUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
@@ -82,60 +94,73 @@ const RegistrationPage = () => {
 
       const data = await response.json();
 
-      if (response.ok && data.result?.address) {
-        if (data.result.address.missingComponentTypes?.length) {
-          setValidationError('Address is missing some components.');
-          setValidatedAddress('');
+      let postal = data?.result?.address?.postalAddress?.postalCode || '';
+      const suggestedAddress = data?.result?.address?.formattedAddress || combinedAddress;
+      const country = (data?.result?.address?.postalAddress?.regionCode || 'US').toUpperCase();
+
+      setValidatedAddress(suggestedAddress);
+      setValidationError(null);
+
+      const userConfirmed = window.confirm(`Is this the address you were looking for?\n\n${suggestedAddress}`);
+      if (!userConfirmed) return;
+
+      // SAFELY PARSE THE GOOGLE SUGGESTED ADDRESS
+      const parts = suggestedAddress.split(',').map(p => p.trim());
+
+      // Always assume country is last
+      const countryPart = parts.pop();
+
+      // Assume state or state+ZIP is second-to-last
+      const statePart = parts.pop();
+
+      // City is next
+      const cityPart = parts.pop();
+
+      // Whatever remains is the street address (if any)
+      const addressPart = parts.join(', ') || '';
+
+      setFormData(prev => ({
+        ...prev,
+        address: addressPart || prev.address,
+        city: cityPart || prev.city,
+        state: statePart || prev.state,
+        postalCode: postal || prev.postalCode
+      }));
+
+      // Zip-based plotting
+      if (postal) {
+        const zipHit = await geocodeZipcode(postal, country);
+        if (zipHit && mapRef.current) {
+          const { latitude: zipLat, longitude: zipLng } = zipHit;
+          mapRef.current.zoomToLocation(zipLat, zipLng);
           return;
         }
+      }
 
-        const suggestedAddress = data.result.address.formattedAddress;
-        const postal = data.result.address.postalAddress?.postalCode || '';
-        const country = (data.result.address.postalAddress?.regionCode || 'US').toUpperCase();
+      // THis part isn't functional yet as we do not have geocoding api set up. Ask the professor about the geocoding api.
+      const fallbackAddress = `${cityPart}, ${statePart}`;
 
-        setValidatedAddress(suggestedAddress);
-        setValidationError(null);
+      const geocodeUrl =
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fallbackAddress)}&key=${apiKey}`;
 
-        const userConfirmed = window.confirm(`Is this the address you were looking for?\n\n${suggestedAddress}`);
-        if (!userConfirmed) return;
+      const geoRes = await fetch(geocodeUrl);
+      const geoData = await geoRes.json();
 
-        const [addr, city, state] = suggestedAddress.split(',').map(part => part.trim());
-        setFormData((prev) => ({
-          ...prev,
-          address: addr || prev.address,
-          city: city || prev.city,
-          state: state || prev.state,
-          postalCode: postal || prev.postalCode,
-        }));
-
-        // ZIP-only plotting
-        if (postal) {
-          const zipHit = await geocodeZipcode(postal, country);
-          if (zipHit && mapRef.current) {
-            const { latitude: zipLat, longitude: zipLng } = zipHit;
-            mapRef.current.zoomToLocation(zipLat, zipLng);
-
-            // Nearby markers relative to ZIP centroid
-            const radius = 200; // km
-            const sameProductMarkers = sites.filter((site) => {
-              const distance = calculateDistance(zipLat, zipLng, site.latitude, site.longitude);
-              return distance <= radius;
-            });
-            setNearbyMarkersCount(sameProductMarkers.length);
-          }
-        } else {
-          setValidationError('Validated address has no postal code; cannot plot by ZIP.');
+      if (geoData?.results?.[0]) {
+        const { lat, lng } = geoData.results[0].geometry.location;
+        if (mapRef.current) {
+          mapRef.current.zoomToLocation(lat, lng);
         }
       } else {
-        setValidatedAddress('');
-        setValidationError('Unable to validate the address. Please check and try again.');
+        setValidationError('Could not plot the city/state.');
       }
-    } catch (error) {
-      setValidatedAddress('');
-      setValidationError('An error occurred while validating the address.');
-      console.error('Address validation error:', error);
+    } catch (err) {
+      console.error(err);
+      setValidationError('An error occurred during validation.');
     }
   };
+
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -215,6 +240,52 @@ const RegistrationPage = () => {
 
       setSubmitSuccess(true);
 
+      // Example product links
+      const productLinks = {
+        AudioSight: 'mailto:audiosight@example.com',
+        SATE: 'mailto:sate@example.com',
+        MRehab: 'mailto:mrehab@example.com',
+      };
+
+      // Build clickable product list
+      const productsHtml = productsInterested.length
+        ? productsInterested.map(p => `<li><a href="${productLinks[p]}" target="_blank">${p}</a></li>`).join('')
+        : '<li>None selected</li>';
+
+
+      // Send welcome email via Supabase Edge Function when a user registers successfully
+      if (insertedData) {
+        const subject = 'Welcome to Customer Atlas!';
+        const message = `Thank you for registering on our platform.
+
+          Here are the products you expressed interest in:
+          ${productsHtml}
+
+          We’ll be in touch with more details soon!`;
+
+        try {
+          const response = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/send-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              to: insertedData.email,
+              subject,
+              message,
+              customerName: insertedData.name,
+            }),
+          });
+
+          if (!response.ok) {
+            console.error('Failed to send welcome email', await response.text());
+          }
+        } catch (emailErr) {
+          console.error('Error sending welcome email:', emailErr);
+        }
+      }
+
       // Navigate to map; if we have coords, zoom to ZIP centroid
       if (latitude && longitude) {
         setTimeout(() => {
@@ -267,8 +338,8 @@ const RegistrationPage = () => {
             <input className="form-input" type="email" name="email" value={formData.email} onChange={handleChange} required />
           </div>
           <div className="form-group">
-            <label className="form-label">Phone Number <span style={{ color: 'red' }}>*</span></label>
-            <input className="form-input" type="tel" name="phoneNumber" value={formData.phoneNumber} onChange={handleChange} required />
+            <label className="form-label">Phone Number</label>
+            <input className="form-input" type="tel" name="phoneNumber" value={formData.phoneNumber} onChange={handleChange} />
           </div>
         </div>
 
@@ -293,8 +364,8 @@ const RegistrationPage = () => {
 
         {/* Address */}
         <div className="form-group">
-          <label className="form-label">Address <span style={{ color: 'red' }}>*</span></label>
-          <input className="form-input" type="text" name="address" value={formData.address} onChange={handleChange} required />
+          <label className="form-label">Address </label>
+          <input className="form-input" type="text" name="address" value={formData.address} onChange={handleChange} />
         </div>
 
         <div className="form-row">
@@ -317,19 +388,21 @@ const RegistrationPage = () => {
         <div className="actions">
           <button type="button" className="btn" onClick={validateAddress}>Validate Address</button>
         </div>
-      </form>
 
-      <div className="map-block">
-        <SimpleMap ref={mapRef} />
-      </div>
-      <div>
-        <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-          {isSubmitting ? 'Submitting...' : 'Register'}
-        </button>
-      </div>
+        <div className="map-block">
+          <SimpleMap ref={mapRef} />
+        </div>
+        <div>
+          <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+            {isSubmitting ? 'Submitting...' : 'Register'}
+          </button>
+        </div>
+      </form>
     </div>
   </div>
+  
   </div>
+  
 </AuthLayout>
 
   );
