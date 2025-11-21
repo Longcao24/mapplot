@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthLayout from "../components/AuthLayout";
 import SimpleMap from "../components/SimpleMap";
+import MapComp from "../pages/MapComp"; 
 import { supabase } from "../lib/supabase";
 import { useCustomerData } from "../hooks/useCustomerData";
 import { geocodeZipcode } from "../utils/geocoding"; // keep this path as your helper
@@ -435,7 +436,7 @@ const RegistrationPage = () => {
         </div>
 
         <div className="map-block">
-          <SimpleMap ref={mapRef} />
+          <MapComp ref={mapRef} sites={sites} />
         </div>
         <div>
           <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
