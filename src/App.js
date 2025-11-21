@@ -15,6 +15,7 @@ import Login from './pages/Login';
 import AcceptInvite from './pages/AcceptInvite';
 import { isAuthenticated } from './lib/supabase';
 import FeatureGate from './pages/FeatureGate';
+import { getFeatureToggle, setFeatureToggle } from './lib/featureToggles';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -32,6 +33,13 @@ function ProtectedRoute({ children }) {
         
         if (!isAuth) {
           console.log('❌ Not authenticated, redirecting to login');
+          const enabled = await getFeatureToggle('my_endpoint');
+          console.log('Feature toggle "my_endpoint" value during auth check:', enabled);
+          if (enabled) {
+            console.log('✅ Feature "my_endpoint" is enabled, allowing access to registration');
+            navigate('/register', { replace: true });
+            return;
+          }
           navigate('/login', { replace: true, state: { from: location } });
         }
       } catch (error) {
